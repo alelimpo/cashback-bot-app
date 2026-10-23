@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <!-- Viewport ottimizzato per le Mini App di Telegram (impedisce lo zoom accidentale) -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Cashback Bot TMA</title>
+    
+    <!-- Script Ufficiale Telegram Web App -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            /* Utilizza i colori di base del tema di Telegram se disponibili, altrimenti fallback su grigio chiaro */
+            background-color: var(--tg-theme-bg-color, #f3f4f6);
+            color: var(--tg-theme-text-color, #1f2937);
+        }
+        
+        /* Animazione per il fade-in dei messaggi */
+        .fade-in {
+            animation: fadeIn 0.3s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col relative overflow-x-hidden">
+
+    <!-- Header con gradiente -->
+    <header class="bg-gradient-to-r from-blue-600 to-purple-600 text-white pt-8 pb-12 px-6 rounded-b-3xl shadow-md">
+        <div class="flex justify-between items-center mb-2">
+            <h1 class="text-xl font-bold tracking-tight">Cashback Bot</h1>
+            <!-- Icona segnaposto -->
+            <svg class="w-6 h-6 text-white opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+        </div>
+        <p class="text-blue-100 text-sm">Ciao, <span id="user-name" class="font-semibold text-white">Utente</span>! 👋</p>
+    </header>
+
+    <!-- Contenuto Principale -->
+    <main class="flex-1 px-4 -mt-8 flex flex-col gap-6">
+        
+        <!-- Card Saldo -->
+        <section class="bg-white rounded-2xl shadow-lg p-5 border border-gray-100">
+            <div class="flex justify-between items-end mb-4">
+                <div>
+                    <p class="text-xs text-gray-500 font-medium uppercase tracking-wider mb-1">Saldo Disponibile</p>
+                    <p class="text-3xl font-bold text-green-500">€ 0,00</p>
+                </div>
+                <button class="bg-blue-600 hover:bg-blue-700 active:bg-blue-800 transition-colors text-white text-sm font-medium py-2 px-4 rounded-xl shadow-sm">
+                    Preleva
+                </button>
+            </div>
+            <div class="border-t border-gray-100 pt-3 mt-2 flex justify-between items-center">
+                <span class="text-sm text-gray-600">Cashback in attesa</span>
+                <span class="text-sm font-semibold text-gray-400">€ 0,00</span>
+            </div>
+        </section>
+
+        <!-- Sezione Genera Link -->
+        <section class="bg-white rounded-2xl shadow-sm p-5 border border-gray-100">
+            <h2 class="text-lg font-semibold mb-1 text-gray-800">Crea Link Affiliato</h2>
+            <p class="text-xs text-gray-500 mb-4">Incolla il link di un prodotto per generare il tuo link cashback tracciato.</p>
+            
+            <div class="space-y-3">
+                <div class="relative">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path>
+                        </svg>
+                    </div>
+                    <input type="url" id="link-input" placeholder="Es. https://www.booking.com/..." 
+                        class="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl leading-5 bg-gray-50 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-colors sm:text-sm">
+                </div>
+                
+                <!-- Messaggio di errore nascosto -->
+                <p id="error-message" class="hidden text-xs text-red-500 font-medium ml-1"></p>
+
+                <button id="generate-btn" class="w-full flex justify-center items-center bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 active:scale-[0.98] transition-all text-white font-semibold py-3 px-4 border border-transparent rounded-xl shadow-md">
+                    Genera Link Cashback
+                </button>
+            </div>
+
+            <!-- Box Risultato Successo (nascosto di default) -->
+            <div id="success-box" class="hidden mt-4 p-4 bg-green-50 border border-green-100 rounded-xl fade-in">
+                <p class="text-xs text-green-800 font-medium mb-2 flex items-center">
+                    <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>
+                    Link generato con successo!
+                </p>
+                <div class="bg-white border border-green-200 p-2 rounded-lg break-all text-sm text-gray-700 font-mono mb-2" id="generated-link">
+                    <!-- Il link apparirà qui -->
+                </div>
+                <button id="copy-btn" class="w-full py-2 bg-green-100 hover:bg-green-200 text-green-700 font-medium rounded-lg text-sm transition-colors flex items-center justify-center">
+                    <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                    Copia Link
+                </button>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer / Legal -->
+    <footer class="mt-auto py-6 text-center">
+        <div class="flex justify-center gap-4 text-xs text-gray-400">
+            <a href="#" class="hover:text-gray-600 transition-colors underline decoration-gray-300 underline-offset-2">Termini e Condizioni</a>
+            <span>&bull;</span>
+            <a href="#" class="hover:text-gray-600 transition-colors underline decoration-gray-300 underline-offset-2">Privacy Policy</a>
+        </div>
+        <p class="text-[10px] text-gray-400 mt-2">Powered by Awin Network</p>
+    </footer>
+
+    <!-- Logica JavaScript -->
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            // 1. Inizializza Telegram Web App
+            const tg = window.Telegram.WebApp;
+            tg.ready();
+            // Espande l'app per occupare tutto lo schermo disponibile
+            tg.expand(); 
+            
+            // Applica i colori nativi di Telegram al background della pagina per integrazione fluida
+            if(tg.themeParams.bg_color) {
+                document.body.style.backgroundColor = tg.themeParams.secondary_bg_color || '#f3f4f6';
+            }
+
+            // 2. Recupera il nome dell'utente in modo sicuro
+            let userName = "Utente";
+            if (tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.first_name) {
+                userName = tg.initDataUnsafe.user.first_name;
+            }
+            document.getElementById("user-name").textContent = userName;
+
+            // 3. Gestione logica dell'interfaccia
+            const generateBtn = document.getElementById("generate-btn");
+            const linkInput = document.getElementById("link-input");
+            const successBox = document.getElementById("success-box");
+            const generatedLink = document.getElementById("generated-link");
+            const copyBtn = document.getElementById("copy-btn");
+            const errorMessage = document.getElementById("error-message");
+
+            generateBtn.addEventListener("click", () => {
+                const url = linkInput.value.trim();
+                
+                // Reset UI
+                successBox.classList.add("hidden");
+                errorMessage.classList.add("hidden");
+                errorMessage.textContent = "";
+                
+                // Validazione base
+                if (url === "") {
+                    // Usa l'Haptic Feedback di Telegram per notificare l'errore fisico al tocco
+                    if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred("error");
+                    
+                    errorMessage.textContent = "Per favore, inserisci un link valido.";
+                    errorMessage.classList.remove("hidden");
+                    linkInput.classList.add("border-red-400", "focus:ring-red-500");
+                    return;
+                }
+                
+                linkInput.classList.remove("border-red-400", "focus:ring-red-500");
+
+                // Feedback visivo di caricamento
+                const originalText = generateBtn.innerHTML;
+                generateBtn.disabled = true;
+                generateBtn.innerHTML = '<span class="opacity-80">Generazione in corso...</span>';
+
+                // Simula il ritardo della chiamata API verso Awin
+                setTimeout(() => {
+                    if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred("success");
+                    
+                    generateBtn.disabled = false;
+                    generateBtn.innerHTML = originalText;
+                    
+                    // Simula un link generato con un codice univoco
+                    const mockTrackingId = Math.random().toString(36).substring(2, 10);
+                    const finalUrl = `https://t.me/CashbackBot?startapp=awin_${mockTrackingId}`;
+                    
+                    generatedLink.textContent = finalUrl;
+                    successBox.classList.remove("hidden");
+                    
+                }, 1000);
+            });
+
+            // Logica per il pulsante "Copia Link"
+            copyBtn.addEventListener("click", () => {
+                const textToCopy = generatedLink.textContent;
+                
+                // Crea un elemento textarea temporaneo per la copia (necessario in alcuni iframe/webview)
+                const tempTextArea = document.createElement("textarea");
+                tempTextArea.value = textToCopy;
+                document.body.appendChild(tempTextArea);
+                tempTextArea.select();
+                
+                try {
+                    document.execCommand('copy');
+                    if(tg.HapticFeedback) tg.HapticFeedback.impactOccurred("light");
+                    
+                    // Feedback visivo sul bottone
+                    const originalBtnHtml = copyBtn.innerHTML;
+                    copyBtn.innerHTML = '<svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Copiato!';
+                    copyBtn.classList.replace("bg-green-100", "bg-green-300");
+                    
+                    setTimeout(() => {
+                        copyBtn.innerHTML = originalBtnHtml;
+                        copyBtn.classList.replace("bg-green-300", "bg-green-100");
+                    }, 2000);
+                } catch (err) {
+                    console.error('Errore durante la copia', err);
+                }
+                
+                document.body.removeChild(tempTextArea);
+            });
+        });
+    </script>
+</body>
+</html>
