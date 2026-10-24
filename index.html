@@ -292,7 +292,7 @@
                 <div class="stores" id="storeList"></div>
                 <div class="empty" id="storesEmpty" hidden>
                     <h3>I primi negozi arrivano a giorni</h3>
-                    <p class="muted small">Abbiamo chiesto ai negozi di entrare nel loro programma di affiliazione sul network Awin e aspettiamo la loro approvazione. Appena un negozio è attivo compare qui da solo.</p>
+                    <p class="muted small">Abbiamo chiesto ai negozi di entrare nel loro programma di affiliazione e aspettiamo la loro approvazione. Appena un negozio è attivo compare qui da solo.</p>
                 </div>
                 <p class="tiny" id="noMatch" hidden style="margin-top:10px">Nessun negozio trovato. Puoi segnalarlo qui sotto.</p>
                 <p class="tiny" id="storesHint" style="margin-top:12px">Le percentuali sono già la tua parte. Apri sempre il negozio da qui subito prima di comprare: conta l'ultimo clic.</p>
@@ -368,7 +368,7 @@
         <!-- ============================== INFO ============================== -->
         <section id="tab-info" role="tabpanel" aria-labelledby="t-info" hidden>
             <h2 style="margin-bottom:4px">Tutto chiaro, niente di nascosto</h2>
-            <p class="muted small" style="margin-bottom:12px">Tocca un punto per leggerlo. I numeri vengono dal server e dai programmi Awin dei negozi, non sono scritti a mano.</p>
+            <p class="muted small" style="margin-bottom:12px">Tocca un punto per leggerlo. I numeri vengono dai programmi di affiliazione dei negozi e si aggiornano da soli, non sono scritti a mano.</p>
             <div class="card" id="infoList"></div>
             <div class="card">
                 <button class="list-row" onclick="location.href='termini.html'">
@@ -416,7 +416,7 @@
         </section>
 
         <footer class="footer">
-            <p>I link verso i negozi sono link di affiliazione del network Awin.</p>
+            <p>I link verso i negozi sono link di affiliazione: il negozio ci paga una commissione sui tuoi acquisti.</p>
             <p><a href="termini.html">Termini</a> &nbsp; <a href="privacy.html">Privacy</a></p>
         </footer>
     </main>
@@ -680,9 +680,9 @@
                 icon: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
                 build(b) {
                     const range = paymentRange();
-                    b.append(para('Il negozio ci paga solo dopo aver confermato l\'ordine, cioè passato il tempo per i resi, e dopo aver pagato Awin. ' + (range ? 'Con i negozi di oggi servono in media ' + range + '.' : 'Spesso passano alcuni mesi.')));
+                    b.append(para('Il negozio ci paga solo dopo aver confermato l\'ordine, cioè passato il tempo per i resi, e dopo aver pagato il network di affiliazione che gestisce il programma. ' + (range ? 'Con i negozi di oggi servono in media ' + range + '.' : 'Spesso passano alcuni mesi.')));
                     b.append(bullets([
-                        'Per ogni negozio vedi il tempo medio secondo Awin e lo stato dei pagamenti del negozio.',
+                        'Per ogni negozio vedi il tempo medio di pagamento e se il negozio paga in regola.',
                         'Per ogni acquisto vedi una data indicativa in cui diventa prelevabile.',
                         'Ti scriviamo sul bot a ogni passaggio: registrato, approvato, disponibile.',
                     ]));
@@ -697,7 +697,7 @@
                     b.append(steps([
                         ['In attesa', 'L\'acquisto è registrato. Il negozio aspetta che passi il tempo per i resi.'],
                         ['Approvato, in arrivo', 'Il negozio ha confermato l\'ordine. Aspettiamo che paghi la commissione.'],
-                        ['Disponibile', 'Awin ci ha pagato: l\'importo è nel saldo prelevabile.'],
+                        ['Disponibile', 'La commissione ci è arrivata: l\'importo è nel saldo prelevabile.'],
                     ]));
                     b.append(para('Se l\'ordine viene reso o annullato, l\'acquisto diventa "Annullato" e quell\'importo non arriva.', 'muted'));
                 },
@@ -727,7 +727,7 @@
                         'Usi un codice sconto trovato su altri siti, se il negozio non lo permette.',
                         'Compri dall\'app del negozio quando la sua scheda dice che l\'app non viene registrata.',
                     ]));
-                    b.append(para('Ogni negozio ha le sue regole: le trovi nella sua scheda, prese dai termini del negozio su Awin.', 'muted'));
+                    b.append(para('Ogni negozio ha le sue regole: le trovi nella sua scheda, prese dai termini del suo programma di affiliazione.', 'muted'));
                 },
             },
             invita: {
@@ -900,13 +900,13 @@
                     const months = Math.max(1, Math.round(t.avgPaymentDays / 30));
                     lines.push('In media il cashback diventa prelevabile ' + t.avgPaymentDays + ' giorni dopo l\'acquisto (circa ' + months + (months === 1 ? ' mese' : ' mesi') + '): è il tempo che il negozio impiega a pagare la commissione.');
                 } else {
-                    lines.push('Awin non ha ancora un tempo medio di pagamento per questo negozio. Ti avvisiamo sul bot quando il cashback è disponibile.');
+                    lines.push('Non c\'è ancora un tempo medio di pagamento per questo negozio. Ti avvisiamo sul bot quando il cashback è disponibile.');
                 }
                 if (t.approvalPercent !== null && t.approvalPercent !== undefined) {
                     lines.push('In media il negozio conferma il ' + String(t.approvalPercent).replace('.', ',') + '% degli ordini. Gli altri vengono annullati: resi, ordini cancellati o non riconosciuti.');
                 }
-                if (t.autoApproveDays) lines.push('Se il negozio non conferma né annulla l\'ordine, Awin lo approva da solo dopo ' + t.autoApproveDays + ' giorni.');
-                if (t.payment && t.payment.text) lines.push(t.payment.text + (t.payment.checkedAt ? ' (dato Awin del ' + day(t.payment.checkedAt) + ')' : ''));
+                if (t.autoApproveDays) lines.push('Se il negozio non conferma né annulla l\'ordine, viene approvato in automatico dopo ' + t.autoApproveDays + ' giorni.');
+                if (t.payment && t.payment.text) lines.push(t.payment.text + (t.payment.checkedAt ? ' (dato del ' + day(t.payment.checkedAt) + ')' : ''));
                 body.append(el('p', 'sub-h', 'Quando arriva'), bullets(lines));
 
                 const r = s.rules || {};
@@ -926,9 +926,9 @@
                 const declared = r.declineReasons && r.declineReasons.length;
                 body.append(el('p', 'sub-h', declared ? 'Il negozio può annullare il cashback se' : 'Il cashback può essere annullato se'),
                     bullets(declared ? r.declineReasons : ['restituisci o annulli l\'ordine', 'l\'ordine non viene pagato o evaso', 'l\'ultimo clic prima dell\'acquisto è di un altro sito']),
-                    para(declared ? 'Sono i motivi che il negozio indica nei suoi termini su Awin.' : 'Il negozio non ha pubblicato su Awin i motivi di annullamento: questi sono i più comuni.', 'tiny'));
+                    para(declared ? 'Sono i motivi che il negozio indica nei termini del suo programma di affiliazione.' : 'Il negozio non ha pubblicato i motivi di annullamento: questi sono i più comuni.', 'tiny'));
 
-                body.append(para('Fonte: programma di affiliazione del negozio sul network Awin' + (s.updatedAt ? ', dati aggiornati al ' + day(s.updatedAt) : '') + '. Le medie descrivono il passato e non sono una garanzia.', 'tiny'));
+                body.append(para('Fonte: programma di affiliazione del negozio' + (s.updatedAt ? ', dati aggiornati al ' + day(s.updatedAt) : '') + '. Le medie descrivono il passato e non sono una garanzia.', 'tiny'));
             }, [{ label: 'Vai al negozio', id: 'ssGo', onClick: (btn) => openStore(s.id, null, btn) }]);
         }
 
@@ -1076,7 +1076,7 @@
             $('heroPending').textContent = euro(me.balance.pendingCents);
             $('availableAmount').textContent = euro(me.balance.availableCents);
             $('pendingAmount').textContent = euro(me.balance.pendingCents);
-            $('minNote').textContent = 'Puoi prelevare da ' + euro(me.balance.minPayoutCents) + ' in su. Un acquisto diventa prelevabile quando il negozio lo conferma e Awin ci paga la commissione.';
+            $('minNote').textContent = 'Puoi prelevare da ' + euro(me.balance.minPayoutCents) + ' in su. Un acquisto diventa prelevabile quando il negozio lo conferma e ci arriva la commissione.';
             $('tgIdNote').textContent = 'Il tuo ID Telegram: ' + me.user.id;
             renderSplit();
 

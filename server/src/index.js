@@ -46,14 +46,14 @@ const DECLINE_REASONS_IT = {
 // Stato dei pagamenti del negozio verso Awin (il "semaforo" del profilo Awin).
 // Definizioni Awin: https://success.awin.com/s/article/What-does-the-Traffic-Light-in-the-Advertiser-Payment-Status-mean
 const PAYMENT_STATUS_IT = {
-  green: 'Il negozio paga Awin regolarmente (stato verde): la commissione ci arriva con il primo pagamento utile dopo la conferma.',
-  amber: 'Stato giallo su Awin: Awin ci paga la commissione solo dopo che il negozio ha pagato Awin, per cui i tempi possono allungarsi.',
-  red: 'Stato rosso su Awin: Awin paga solo quando il negozio salda tutte le fatture arretrate. I tempi sono incerti.',
+  green: 'Il negozio paga regolarmente il network di affiliazione (stato verde): la commissione ci arriva con il primo pagamento utile dopo la conferma.',
+  amber: 'Pagamenti del negozio in stato giallo: il network di affiliazione ci paga la commissione solo dopo che il negozio ha pagato, per cui i tempi possono allungarsi.',
+  red: 'Pagamenti del negozio in stato rosso: il network ci paga solo quando il negozio salda tutte le fatture arretrate. I tempi sono incerti.',
 };
 const PAYMENT_LEVEL_IT = {
   1: 'livello 1 di 4, rischio basso: paga con addebito diretto ma ha superato il limite di credito',
   2: 'livello 2 di 4, rischio medio: ha superato il limite della sua assicurazione sul credito',
-  3: 'livello 3 di 4, rischio medio: ha fatture scadute con Awin',
+  3: 'livello 3 di 4, rischio medio: ha fatture scadute con il network',
   4: 'livello 4 di 4, rischio alto: ha superato il limite di credito e ha fatture scadute',
 };
 
@@ -61,7 +61,7 @@ function paymentStatusView(p) {
   if (!p || !PAYMENT_STATUS_IT[p.color]) return null;
   let text = PAYMENT_STATUS_IT[p.color];
   const level = PAYMENT_LEVEL_IT[p.level];
-  if (p.color === 'amber' && level) text = text.replace('Stato giallo su Awin:', `Stato giallo su Awin (${level}):`);
+  if (p.color === 'amber' && level) text = text.replace('in stato giallo:', `in stato giallo (${level}):`);
   return { color: p.color, level: toNumber(p.level), text, checkedAt: p.checkedAt || null };
 }
 
@@ -1079,7 +1079,7 @@ async function handleAwinNotify(request, env, url, ctx) {
     ).bind(tx.id).first();
     if (row && row.user_id) {
       ctx.waitUntil(tgSend(env, row.user_id,
-        `Abbiamo registrato il tuo acquisto da ${row.store_name || 'un negozio partner'}: ${formatEuro(row.user_amount_cents)} di cashback in attesa. Diventa prelevabile quando il negozio conferma l'ordine e Awin ci paga.`));
+        `Abbiamo registrato il tuo acquisto da ${row.store_name || 'un negozio partner'}: ${formatEuro(row.user_amount_cents)} di cashback in attesa. Diventa prelevabile quando il negozio conferma l'ordine e ci arriva la commissione.`));
     }
   }
   return new Response('OK', { status: 200 });
