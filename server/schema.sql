@@ -84,6 +84,24 @@ CREATE TABLE IF NOT EXISTS withdrawals (
 );
 CREATE INDEX IF NOT EXISTS idx_wd_user ON withdrawals(user_id, status);
 
+-- Segnalazioni degli utenti: negozi che vorrebbero trovare nella Mini App.
+CREATE TABLE IF NOT EXISTS store_requests (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id      TEXT NOT NULL,
+  store_name   TEXT NOT NULL,                  -- come l'ha scritto l'utente
+  store_key    TEXT NOT NULL,                  -- nome normalizzato, per raggruppare (es. 'zalando')
+  website      TEXT,                           -- dominio, se indicato
+  note         TEXT,
+  store_id     TEXT,                           -- negozio del catalogo, se gia' presente
+  awin_matches TEXT,                           -- programmi Awin trovati con lo stesso nome
+  status       TEXT NOT NULL DEFAULT 'new',    -- new | working | added | alternative | not_possible
+  reply        TEXT,                           -- risposta inviata all'utente
+  created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+  handled_at   TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_req_user ON store_requests(user_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_req_key ON store_requests(store_key, status);
+
 -- Impostazioni interne (es. esito dell'ultima sincronizzazione con Awin).
 CREATE TABLE IF NOT EXISTS settings (
   key        TEXT PRIMARY KEY,

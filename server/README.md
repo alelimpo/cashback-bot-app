@@ -22,6 +22,16 @@ Backend su Cloudflare Workers (piano gratuito) con database D1.
 
 Gli indirizzi segreti per Awin e Telegram vengono ricavati dal token del bot: non serve altro.
 
+Facoltativi, per ricevere anche via email le segnalazioni dei negozi (su Telegram arrivano comunque):
+
+| Nome | Dove si prende |
+| --- | --- |
+| `RESEND_API_KEY` | account gratuito su https://resend.com > API Keys (3000 email al mese) |
+| `NOTIFY_EMAIL` | l'indirizzo email con cui hai creato l'account Resend |
+
+Senza un dominio verificato Resend scrive solo all'indirizzo del tuo account: per le segnalazioni basta.
+"Configura e verifica" nella Mini App manda un'email di prova.
+
 ## Impostazioni (`wrangler.toml`)
 
 `USER_SHARE` quota all'utente, `MIN_PAYOUT_EUR` soglia di prelievo, `REFERRAL_BONUS_EUR` bonus invito,
@@ -51,6 +61,16 @@ VALUES ('ovs', 'OVS', 37020, 'ovs.it', 'Moda', 'percent', 5.88);
 ```
 
 Si accenderà da solo quando Awin ti approva nel programma 37020.
+
+## Segnalazioni dei negozi
+
+Dalla Mini App gli utenti segnalano i negozi che vorrebbero (massimo 5 al giorno a testa). Per ogni
+segnalazione ricevi un messaggio sul bot (e un'email, se configurata) con il numero di utenti che lo
+chiedono e, se esiste, il link al programma Awin italiano dello stesso negozio. Nella sezione Admin
+della Mini App le segnalazioni sono raggruppate per negozio: con un tocco rispondi "Ci lavoro",
+"Aggiunto", "Alternativa" o "Non possibile", e il bot scrive a tutti quelli che l'avevano chiesto.
+Quando Awin approva un negozio, le segnalazioni che lo riguardano si chiudono da sole e gli utenti
+ricevono il messaggio. Il database già in uso va aggiornato una volta con `db-updates/0003_segnalazioni.sql`.
 
 ## Test in locale
 

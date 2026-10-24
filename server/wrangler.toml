@@ -39,4 +39,6 @@ TELEGRAM_APP_LINK = ""
 #   TELEGRAM_BOT_TOKEN   (obbligatorio, da @BotFather)
 #   AWIN_API_TOKEN       (obbligatorio, da https://ui.awin.com/awin-api)
 #   NOTIFY_SECRET, TELEGRAM_WEBHOOK_SECRET (facoltativi: se mancano vengono ricavati dal token del bot)
+#   RESEND_API_KEY, NOTIFY_EMAIL (facoltativi: email delle segnalazioni di negozi, con un account
+#     gratuito su resend.com; NOTIFY_EMAIL deve essere l'indirizzo con cui hai creato l'account)
 # Nota: le variabili qui sopra vengono riscritte a ogni pubblicazione; si cambiano in questo file.

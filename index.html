@@ -2,196 +2,514 @@
 <html lang="it">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Cashback Bot</title>
-    <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="preload" href="fonts/bricolage-grotesque.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="fonts/figtree-400.woff2" as="font" type="font/woff2" crossorigin>
     <style>
-        body { -webkit-tap-highlight-color: transparent; }
-        .sheet { transition: transform .2s ease; }
+        /* Caratteri ospitati qui (licenza SIL OFL, vedi cartella fonts): nessuna richiesta a servizi esterni. */
+        @font-face { font-family: 'Bricolage Grotesque'; font-weight: 200 800; font-display: swap; src: url(fonts/bricolage-grotesque.woff2) format('woff2'); }
+        @font-face { font-family: 'Figtree'; font-weight: 400; font-display: swap; src: url(fonts/figtree-400.woff2) format('woff2'); }
+        @font-face { font-family: 'Figtree'; font-weight: 500; font-display: swap; src: url(fonts/figtree-500.woff2) format('woff2'); }
+        @font-face { font-family: 'Figtree'; font-weight: 600; font-display: swap; src: url(fonts/figtree-600.woff2) format('woff2'); }
+        @font-face { font-family: 'Figtree'; font-weight: 700; font-display: swap; src: url(fonts/figtree-700.woff2) format('woff2'); }
+        :root {
+            --bg: #edf2ef;
+            --surface: #ffffff;
+            --surface-2: #e2ebe6;
+            --ink: #13241e;
+            --ink-2: #4b5e56;
+            --ink-3: #7b8d85;
+            --line: #d6e1db;
+            --brand: #0e5a45;
+            --brand-2: #0b4737;
+            --brand-ink: #ffffff;
+            --coin: #f3b63c;
+            --coin-ink: #3a2a05;
+            --pos: #12835b;
+            --warn: #a76a00;
+            --warn-bg: #fbefd6;
+            --danger: #c23b32;
+            --danger-bg: #f9e3e1;
+            --focus: #f3b63c;
+            --shadow: 0 1px 2px rgba(19, 36, 30, .06), 0 8px 24px -12px rgba(19, 36, 30, .18);
+            --display: 'Bricolage Grotesque', 'Figtree', system-ui, sans-serif;
+            --text: 'Figtree', system-ui, -apple-system, 'Segoe UI', sans-serif;
+            color-scheme: light;
+        }
+        :root[data-theme="dark"] {
+            --bg: #0c1613;
+            --surface: #14211d;
+            --surface-2: #1b2c26;
+            --ink: #e6efeb;
+            --ink-2: #a8bbb3;
+            --ink-3: #7a8e86;
+            --line: #24362f;
+            --brand: #13664f;
+            --brand-2: #0f3f32;
+            --pos: #4fc88f;
+            --warn: #f0b552;
+            --warn-bg: #3a2c12;
+            --danger: #f07a70;
+            --danger-bg: #3b1d1a;
+            --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 10px 28px -14px rgba(0, 0, 0, .6);
+            color-scheme: dark;
+        }
+        * { box-sizing: border-box; }
+        html, body { margin: 0; }
+        body {
+            background: var(--bg);
+            color: var(--ink);
+            font-family: var(--text);
+            font-size: 15px;
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+            -webkit-tap-highlight-color: transparent;
+            padding-bottom: calc(76px + env(safe-area-inset-bottom));
+        }
+        body.locked { overflow: hidden; }
+        button, input, select, textarea { font: inherit; color: inherit; }
+        button { cursor: pointer; border: 0; background: none; padding: 0; }
+        button:disabled { opacity: .55; cursor: default; }
+        :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; border-radius: 10px; }
+        a { color: var(--brand); }
+        [data-theme="dark"] a { color: var(--pos); }
+        [hidden] { display: none !important; }
+
+        .wrap { max-width: 560px; margin: 0 auto; padding: 14px 16px 0; }
+        h1, h2, h3, .display { font-family: var(--display); letter-spacing: -.01em; margin: 0; }
+        h2 { font-size: 21px; font-weight: 700; line-height: 1.2; }
+        h3 { font-size: 17px; font-weight: 700; }
+        p { margin: 0; }
+        .muted { color: var(--ink-2); }
+        .small { font-size: 13px; }
+        .tiny { font-size: 12px; color: var(--ink-3); }
+
+        /* Intestazione */
+        .top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+        .brand { display: flex; align-items: center; gap: 9px; font-family: var(--display); font-weight: 800; font-size: 17px; }
+        .brand svg { width: 28px; height: 28px; flex: none; }
+        .hello { font-size: 14px; color: var(--ink-2); }
+
+        /* Saldo: il pannello verde */
+        .hero { background: var(--brand); color: var(--brand-ink); border-radius: 26px; padding: 20px 20px 18px; position: relative; overflow: hidden; }
+        [data-theme="dark"] .hero { background: var(--brand-2); }
+        .hero-label { font-size: 14px; opacity: .85; }
+        .hero-amount { font-family: var(--display); font-size: 44px; font-weight: 800; line-height: 1.05; letter-spacing: -.02em; margin-top: 2px; font-variant-numeric: tabular-nums; }
+        .hero-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+        .hero-pending { margin-top: 6px; font-size: 14px; opacity: .9; }
+        .hero-pending b { font-weight: 700; }
+        .btn-coin { background: var(--coin); color: var(--coin-ink); font-weight: 700; border-radius: 999px; padding: 10px 18px; font-size: 15px; white-space: nowrap; }
+        .hero-note { margin-top: 10px; font-size: 13px; background: rgba(255, 255, 255, .12); border-radius: 12px; padding: 8px 10px; }
+        .hero-guest { font-family: var(--display); font-size: 26px; font-weight: 800; line-height: 1.15; }
+
+        /* La divisione 60/40: l'elemento che ricorre */
+        .split { margin-top: 16px; }
+        .split-bar { display: flex; height: 34px; border-radius: 12px; overflow: hidden; font-size: 13px; font-weight: 700; }
+        .split-bar span { display: flex; align-items: center; padding: 0 10px; white-space: nowrap; }
+        .split-you { background: var(--coin); color: var(--coin-ink); }
+        .split-us { background: rgba(255, 255, 255, .16); color: inherit; justify-content: flex-end; }
+        .split-caption { margin-top: 8px; font-size: 13px; opacity: .9; }
+        .split.on-light .split-us { background: var(--surface-2); color: var(--ink-2); }
+
+        /* Pulsanti informativi */
+        .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+        .tile { background: var(--surface); border-radius: 18px; padding: 11px 12px; text-align: left; box-shadow: var(--shadow); display: grid; grid-template-columns: 22px 1fr; column-gap: 9px; row-gap: 1px; align-items: center; align-content: start; }
+        .tile svg { width: 22px; height: 22px; color: var(--brand); grid-row: 1 / span 2; align-self: start; margin-top: 1px; }
+        [data-theme="dark"] .tile svg { color: var(--pos); }
+        .tile b { font-size: 14.5px; font-weight: 700; line-height: 1.25; }
+        .tile span { font-size: 12.5px; color: var(--ink-2); line-height: 1.3; }
+
+        .section { margin-top: 26px; }
+        .section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+        .link-btn { color: var(--brand); font-weight: 700; font-size: 14px; }
+        [data-theme="dark"] .link-btn { color: var(--pos); }
+
+        /* Ricerca e categorie */
+        .search { width: 100%; background: var(--surface); border: 1.5px solid var(--line); border-radius: 14px; padding: 12px 14px; font-size: 15px; }
+        .search:focus { outline: none; border-color: var(--brand); }
+        .chips { display: flex; gap: 8px; overflow-x: auto; padding: 10px 0 2px; scrollbar-width: none; }
+        .chips::-webkit-scrollbar { display: none; }
+        .chip { flex: none; padding: 7px 13px; border-radius: 999px; background: var(--surface); border: 1.5px solid var(--line); font-size: 13.5px; font-weight: 600; color: var(--ink-2); }
+        .chip[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+
+        /* Negozi */
+        .stores { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+        .store { display: flex; align-items: center; gap: 12px; background: var(--surface); border-radius: 18px; padding: 12px; box-shadow: var(--shadow); }
+        .store-main { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; text-align: left; }
+        .logo { width: 48px; height: 48px; border-radius: 14px; background: #fff; border: 1px solid var(--line); flex: none; display: grid; place-items: center; overflow: hidden; }
+        .logo img { width: 100%; height: 100%; object-fit: contain; padding: 4px; }
+        .logo.mono { background: var(--surface-2); font-family: var(--display); font-weight: 800; font-size: 20px; color: var(--brand); border: 0; }
+        [data-theme="dark"] .logo.mono { color: var(--pos); }
+        .store-name { font-weight: 700; font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .store-rate { font-family: var(--display); font-weight: 800; font-size: 18px; color: var(--pos); line-height: 1.2; }
+        .store-sub { font-size: 12.5px; color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .btn-go { flex: none; background: var(--brand); color: var(--brand-ink); font-weight: 700; border-radius: 12px; padding: 10px 14px; font-size: 14px; }
+
+        .empty { background: var(--surface); border-radius: 20px; padding: 20px; box-shadow: var(--shadow); }
+        .empty h3 { margin-bottom: 6px; }
+
+        .card { background: var(--surface); border-radius: 20px; padding: 16px; box-shadow: var(--shadow); }
+        .card + .card { margin-top: 10px; }
+        .card-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+        .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border-radius: 14px; padding: 13px 16px; font-weight: 700; font-size: 15px; width: 100%; }
+        .btn-primary { background: var(--brand); color: var(--brand-ink); }
+        .btn-soft { background: var(--surface-2); color: var(--ink); }
+        .btn-small { width: auto; padding: 9px 13px; font-size: 14px; border-radius: 12px; }
+        .field { width: 100%; background: var(--bg); border: 1.5px solid var(--line); border-radius: 12px; padding: 11px 12px; font-size: 15px; }
+        .field:focus { outline: none; border-color: var(--brand); }
+        textarea.field { resize: vertical; min-height: 84px; }
+        label.lbl { display: block; font-size: 13.5px; font-weight: 600; color: var(--ink-2); margin: 12px 0 5px; }
+        .error-text { color: var(--danger); font-size: 13px; margin-top: 6px; }
+
+        /* Acquisti */
+        .tx { padding: 12px 0; border-top: 1px solid var(--line); }
+        .tx:first-child { border-top: 0; padding-top: 2px; }
+        .tx-top { display: flex; justify-content: space-between; gap: 10px; }
+        .tx-store { font-weight: 700; }
+        .tx-amount { font-family: var(--display); font-weight: 800; font-variant-numeric: tabular-nums; }
+        .tx-amount.cancel { color: var(--ink-3); text-decoration: line-through; }
+        .phases { display: flex; align-items: center; gap: 0; margin: 8px 0 4px; }
+        .phase-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--surface-2); border: 2px solid var(--line); flex: none; }
+        .phase-dot.done { background: var(--pos); border-color: var(--pos); }
+        .phase-line { flex: 1; height: 2px; background: var(--line); }
+        .phase-line.done { background: var(--pos); }
+        .phase-labels { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--ink-3); }
+        .phase-labels .on { color: var(--ink); font-weight: 700; }
+        .pill { display: inline-block; font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 999px; background: var(--surface-2); color: var(--ink-2); }
+        .pill.warn { background: var(--warn-bg); color: var(--warn); }
+        .pill.pos { background: color-mix(in srgb, var(--pos) 16%, transparent); color: var(--pos); }
+        .pill.danger { background: var(--danger-bg); color: var(--danger); }
+
+        .list-row { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; padding: 14px 4px; border-top: 1px solid var(--line); }
+        .list-row:first-child { border-top: 0; }
+        .list-row svg { width: 22px; height: 22px; color: var(--brand); flex: none; }
+        [data-theme="dark"] .list-row svg { color: var(--pos); }
+        .list-row .chev { margin-left: auto; color: var(--ink-3); width: 18px; height: 18px; }
+        .list-row b { display: block; font-size: 15px; }
+        .list-row span { display: block; font-size: 13px; color: var(--ink-2); }
+
+        .invite-box { display: flex; gap: 8px; margin-top: 12px; }
+        .invite-box input { flex: 1; min-width: 0; font-size: 13px; }
+
+        .footer { text-align: center; font-size: 12px; color: var(--ink-3); padding: 28px 0 8px; }
+        .footer a { color: var(--ink-2); }
+
+        /* Barra in basso */
+        .tabbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; background: var(--surface); border-top: 1px solid var(--line); display: flex; justify-content: space-around; padding: 6px 6px calc(6px + env(safe-area-inset-bottom)); }
+        .tab { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; color: var(--ink-3); min-width: 72px; }
+        .tab svg { width: 24px; height: 24px; }
+        .tab[aria-selected="true"] { color: var(--brand); }
+        [data-theme="dark"] .tab[aria-selected="true"] { color: var(--pos); }
+
+        /* Popup dal basso */
+        .sheet { position: fixed; inset: 0; z-index: 50; display: flex; align-items: flex-end; justify-content: center; }
+        .sheet-backdrop { position: absolute; inset: 0; background: rgba(6, 15, 12, .5); opacity: 0; transition: opacity .2s ease; }
+        .sheet-panel { position: relative; width: 100%; max-width: 560px; max-height: 90vh; overflow-y: auto; background: var(--surface); border-radius: 24px 24px 0 0; padding: 10px 20px 0; transform: translateY(100%); transition: transform .24s cubic-bezier(.2, .8, .2, 1); }
+        .sheet.open .sheet-backdrop { opacity: 1; }
+        .sheet.open .sheet-panel { transform: none; }
+        .sheet-grip { width: 40px; height: 5px; border-radius: 3px; background: var(--line); margin: 0 auto 10px; }
+        .sheet-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+        .sheet-head h2 { font-size: 22px; }
+        .sheet-close { width: 36px; height: 36px; border-radius: 50%; background: var(--surface-2); display: grid; place-items: center; flex: none; }
+        .sheet-close svg { width: 18px; height: 18px; }
+        .sheet-body { display: flex; flex-direction: column; gap: 12px; font-size: 15px; color: var(--ink); }
+        .sheet-body .muted { font-size: 14px; }
+        .sheet-actions { display: flex; gap: 10px; margin-top: 18px; position: sticky; bottom: 0; background: var(--surface); padding: 12px 0 calc(16px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line); }
+        .steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+        .steps li { display: flex; gap: 12px; }
+        .step-n { width: 30px; height: 30px; border-radius: 50%; background: var(--brand); color: var(--brand-ink); font-family: var(--display); font-weight: 800; display: grid; place-items: center; flex: none; }
+        .steps b { display: block; }
+        .steps span { color: var(--ink-2); font-size: 14px; }
+        .bul { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+        .box { background: var(--surface-2); border-radius: 14px; padding: 12px 14px; }
+        .rates { width: 100%; border-collapse: collapse; font-size: 14px; }
+        .rates th { text-align: right; font-weight: 600; color: var(--ink-3); font-size: 12.5px; padding: 0 0 6px 8px; }
+        .rates th:first-child { text-align: left; padding-left: 0; }
+        .rates td { padding: 8px 0 8px 8px; border-top: 1px solid var(--line); text-align: right; white-space: nowrap; vertical-align: top; }
+        .rates td:first-child { text-align: left; white-space: normal; padding-left: 0; }
+        .rates .you { font-weight: 800; color: var(--pos); }
+        .rates .none { color: var(--ink-3); font-weight: 600; }
+        .sub-h { font-family: var(--display); font-weight: 700; font-size: 16px; margin-top: 8px; }
+        .sheet-panel .btn-go-wide { margin-top: 18px; }
+
+        .toast { position: fixed; left: 16px; right: 16px; bottom: calc(86px + env(safe-area-inset-bottom)); z-index: 60; background: var(--ink); color: var(--bg); font-weight: 600; font-size: 14px; padding: 12px 14px; border-radius: 14px; box-shadow: var(--shadow); max-width: 528px; margin: 0 auto; }
+        .toast.err { background: var(--danger); color: #fff; }
+        .admin-group { padding: 14px 0; border-top: 1px solid var(--line); }
+        .admin-group:first-child { border-top: 0; padding-top: 0; }
+        .admin-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+        .ok-line { color: var(--pos); }
+        .ko-line { color: var(--danger); }
+
+        @media (prefers-reduced-motion: reduce) {
+            .sheet-backdrop, .sheet-panel { transition: none; }
+        }
     </style>
 </head>
-<body class="bg-slate-800 text-slate-800 font-sans antialiased min-h-screen flex flex-col">
-
-    <div class="flex-1 bg-slate-100 rounded-b-3xl pb-6 shadow-lg">
-        <!-- Header -->
-        <div class="bg-gradient-to-r from-blue-600 to-purple-600 p-6 pb-10 text-white rounded-b-[2rem] shadow-md">
-            <div class="flex justify-between items-center mb-2">
-                <h1 class="text-xl font-bold">Cashback Bot</h1>
-                <span class="bg-white/20 p-1.5 rounded-full">
-                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                </span>
+<body>
+    <main class="wrap">
+        <header class="top">
+            <div class="brand">
+                <svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="15" fill="var(--coin)"/><path d="M21.5 11.2A7 7 0 1 0 23 16" fill="none" stroke="var(--coin-ink)" stroke-width="2.6" stroke-linecap="round"/><path d="M18.6 10.2l3.3 1.1-1.1 3.3" fill="none" stroke="var(--coin-ink)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Cashback Bot
             </div>
-            <p class="text-sm opacity-90">Ciao, <span id="userName" class="font-bold">Utente</span>! 👋</p>
-            <p id="tagline" class="text-xs opacity-90 mt-1">Stesso prezzo di sempre, e la parte più grande della commissione torna a te.</p>
-        </div>
+            <p class="hello" id="hello"></p>
+        </header>
 
-        <!-- Avviso fuori da Telegram -->
-        <div id="notInTelegram" class="hidden mx-5 -mt-6 mb-4 bg-amber-50 border border-amber-200 text-amber-800 text-sm p-4 rounded-2xl">
-            Apri questa pagina dal bot Telegram per ricevere il cashback sui tuoi acquisti.
-        </div>
-
-        <!-- Saldo -->
-        <div id="balanceCard" class="mx-5 -mt-6 bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
-            <p class="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-1">Saldo disponibile</p>
-            <div class="flex justify-between items-end mb-4">
-                <p id="availableAmount" class="text-3xl font-bold text-green-500">€ 0,00</p>
-                <button id="withdrawBtn" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold py-1.5 px-4 rounded-lg transition">Preleva</button>
-            </div>
-            <div class="flex justify-between text-sm pt-3 border-t border-slate-100">
-                <span class="text-slate-500">Cashback in attesa</span>
-                <span id="pendingAmount" class="font-semibold text-slate-400">€ 0,00</span>
-            </div>
-            <p id="withdrawNote" class="hidden text-xs text-blue-700 bg-blue-50 rounded-lg p-2 mt-3"></p>
-            <p id="minNote" class="text-xs text-slate-400 mt-3"></p>
-        </div>
-
-        <!-- Come funziona -->
-        <details id="howCard" class="mx-5 mt-4 bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
-            <summary class="font-bold text-slate-800 cursor-pointer">Come funziona, senza sorprese</summary>
-            <div id="howBody" class="mt-3 text-sm text-slate-600 space-y-3"></div>
-        </details>
-
-        <!-- Negozi -->
-        <div class="mx-5 mt-4 bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
-            <h2 class="font-bold text-slate-800 mb-1">Negozi con cashback</h2>
-            <p class="text-xs text-slate-500 mb-3">Le percentuali sono già la tua parte. Tocca un negozio per vedere categorie, tempi e regole. Aprilo sempre da qui prima di comprare: vale l'ultimo clic.</p>
-
-            <input type="search" id="storeSearch" placeholder="Cerca un negozio" class="w-full px-4 py-2.5 mb-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-
-            <div id="storeList" class="divide-y divide-slate-100"></div>
-            <p id="storesEmpty" class="hidden text-sm text-slate-500 py-3">Stiamo attivando i primi negozi: torna a trovarci tra qualche giorno.</p>
-
-            <details class="mt-4">
-                <summary class="text-sm font-semibold text-blue-600 cursor-pointer">Hai già il link di un prodotto?</summary>
-                <div class="mt-3">
-                    <input type="url" id="productLink" placeholder="Incolla qui il link del prodotto" class="w-full px-4 py-2.5 mb-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <p id="productError" class="hidden text-xs text-red-500 mb-2"></p>
-                    <button id="productBtn" class="w-full bg-gradient-to-r from-purple-500 to-blue-600 text-white font-bold py-2.5 rounded-xl shadow-md hover:opacity-90 transition">Apri con cashback</button>
+        <!-- ============================== NEGOZI ============================== -->
+        <section id="tab-shop" role="tabpanel" aria-labelledby="t-shop">
+            <div class="hero" id="hero">
+                <div id="heroUser" hidden>
+                    <p class="hero-label">Il tuo saldo prelevabile</p>
+                    <div class="hero-row">
+                        <p class="hero-amount" id="heroAmount">0,00 €</p>
+                        <button class="btn-coin" id="heroWithdraw">Preleva</button>
+                    </div>
+                    <p class="hero-pending">In arrivo: <b id="heroPending">0,00 €</b></p>
                 </div>
-            </details>
-        </div>
-
-        <!-- Movimenti -->
-        <div class="mx-5 mt-4 bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
-            <h2 class="font-bold text-slate-800 mb-3">I tuoi acquisti</h2>
-            <div id="txList" class="divide-y divide-slate-100"></div>
-            <p id="txEmpty" class="text-sm text-slate-500">Nessun acquisto ancora. Gli ordini compaiono qui di solito entro qualche ora.</p>
-        </div>
-
-        <!-- Inviti -->
-        <div id="inviteCard" class="hidden mx-5 mt-4 bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
-            <h2 class="font-bold text-slate-800 mb-1">Invita un amico</h2>
-            <p id="inviteText" class="text-xs text-slate-500 mb-3"></p>
-            <div class="flex items-center gap-2">
-                <input type="text" id="inviteLink" readonly class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 outline-none">
-                <button id="shareBtn" class="bg-blue-600 text-white text-sm font-bold py-2 px-3 rounded-xl">Condividi</button>
+                <div id="heroGuest">
+                    <p class="hero-guest">Stesso prezzo di sempre. Una parte ti torna indietro.</p>
+                    <p class="hero-note" id="guestNote" hidden>Per ricevere il cashback apri questa pagina dal bot Telegram <a id="botLink" href="https://t.me/MioCashback_bot" style="color:inherit;font-weight:700">@MioCashback_bot</a>.</p>
+                </div>
+                <div class="split" aria-label="Divisione della commissione">
+                    <div class="split-bar">
+                        <span class="split-you" id="splitYou" style="width:60%">60% a te</span>
+                        <span class="split-us" id="splitUs" style="width:40%">40% a noi</span>
+                    </div>
+                    <p class="split-caption" id="splitCaption">Ogni negozio ci paga una commissione sui tuoi acquisti. La parte più grande è tua.</p>
+                </div>
             </div>
-        </div>
 
-        <!-- Admin -->
-        <div id="adminCard" class="hidden mx-5 mt-4 bg-white p-5 rounded-2xl shadow-sm border-2 border-purple-200">
-            <h2 class="font-bold text-slate-800 mb-1">Prelievi da pagare</h2>
-            <p class="text-xs text-slate-500 mb-3">Paga con il metodo scelto, poi segna la richiesta come pagata.</p>
-            <div id="adminList" class="divide-y divide-slate-100"></div>
-            <p id="adminEmpty" class="hidden text-sm text-slate-500">Nessuna richiesta in attesa.</p>
+            <div class="tiles" id="homeTiles"></div>
 
-            <div class="mt-5 pt-4 border-t border-slate-100">
-                <h3 class="font-bold text-slate-800 mb-1">Configurazione</h3>
-                <p class="text-xs text-slate-500 mb-3">Collega il bot alla Mini App e mostra l'indirizzo per le notifiche Awin.</p>
-                <button id="setupBtn" class="w-full bg-purple-600 text-white text-sm font-bold py-2.5 rounded-xl">Configura e verifica</button>
-                <div id="setupResult" class="hidden mt-3 text-xs space-y-1"></div>
-                <div id="notifyBox" class="hidden mt-3">
-                    <p class="text-xs font-semibold text-slate-500 mb-1">Da incollare in Awin, Strumenti &gt; Notifiche transazione (metodo POST):</p>
-                    <div class="flex items-center gap-2">
-                        <input type="text" id="notifyUrl" readonly class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none">
-                        <button id="copyNotify" class="bg-slate-800 text-white text-xs font-bold py-2 px-3 rounded-xl">Copia</button>
+            <div class="section">
+                <div class="section-head">
+                    <h2>Negozi con cashback</h2>
+                </div>
+                <input type="search" class="search" id="storeSearch" placeholder="Cerca un negozio o una categoria" aria-label="Cerca un negozio">
+                <div class="chips" id="chips" role="toolbar" aria-label="Categorie"></div>
+                <div class="stores" id="storeList"></div>
+                <div class="empty" id="storesEmpty" hidden>
+                    <h3>I primi negozi arrivano a giorni</h3>
+                    <p class="muted small">Abbiamo chiesto ai negozi di entrare nel loro programma di affiliazione sul network Awin e aspettiamo la loro approvazione. Appena un negozio è attivo compare qui da solo.</p>
+                </div>
+                <p class="tiny" id="noMatch" hidden style="margin-top:10px">Nessun negozio trovato. Puoi segnalarlo qui sotto.</p>
+                <p class="tiny" id="storesHint" style="margin-top:12px">Le percentuali sono già la tua parte. Apri sempre il negozio da qui subito prima di comprare: conta l'ultimo clic.</p>
+            </div>
+
+            <div class="section">
+                <div class="card">
+                    <h3>Non trovi il tuo negozio?</h3>
+                    <p class="muted small" style="margin-top:4px">Dicci quale vorresti. Proviamo ad aggiungerlo e, se non è possibile, ti proponiamo un'alternativa. Ti rispondiamo sul bot.</p>
+                    <button class="btn btn-primary" id="requestBtn" style="margin-top:12px">Segnala un negozio</button>
+                    <div id="myRequests" hidden style="margin-top:14px"></div>
+                </div>
+                <div class="card" id="productCard">
+                    <h3>Hai già il link di un prodotto?</h3>
+                    <p class="muted small" style="margin-top:4px">Incollalo qui: ti portiamo alla stessa pagina con il cashback attivo.</p>
+                    <input type="url" class="field" id="productLink" placeholder="https://..." style="margin-top:10px" aria-label="Link del prodotto">
+                    <p class="error-text" id="productError" hidden></p>
+                    <button class="btn btn-soft" id="productBtn" style="margin-top:10px">Apri con cashback</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============================== SALDO ============================== -->
+        <section id="tab-wallet" role="tabpanel" aria-labelledby="t-wallet" hidden>
+            <div id="walletGuest" class="empty" hidden>
+                <h3>Apri la Mini App dal bot</h3>
+                <p class="muted small">Il saldo e i tuoi acquisti si vedono solo dentro Telegram, dal bot @MioCashback_bot.</p>
+            </div>
+            <div id="walletUser" hidden>
+                <div class="card">
+                    <div class="card-row">
+                        <div>
+                            <p class="muted small">Prelevabile</p>
+                            <p class="display" style="font-size:32px;font-weight:800" id="availableAmount">0,00 €</p>
+                        </div>
+                        <button class="btn btn-primary btn-small" id="withdrawBtn">Preleva</button>
+                    </div>
+                    <div class="card-row" style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line)">
+                        <p class="muted small">In arrivo, non ancora prelevabile</p>
+                        <p style="font-weight:700" id="pendingAmount">0,00 €</p>
+                    </div>
+                    <p class="hero-note" id="withdrawNote" hidden style="background:var(--surface-2);color:var(--ink)"></p>
+                    <p class="tiny" id="minNote" style="margin-top:10px"></p>
+                </div>
+
+                <div class="section">
+                    <div class="section-head"><h2>I tuoi acquisti</h2><button class="link-btn" data-info="fasi">Le tre fasi</button></div>
+                    <div class="card">
+                        <div id="txList"></div>
+                        <p class="muted small" id="txEmpty">Ancora nessun acquisto. Dopo un ordine partito da qui, di solito compare entro qualche ora.</p>
+                    </div>
+                </div>
+
+                <div class="section" id="wdSection" hidden>
+                    <div class="section-head"><h2>Prelievi</h2></div>
+                    <div class="card" id="wdList"></div>
+                </div>
+
+                <div class="section" id="inviteCard" hidden>
+                    <div class="section-head"><h2>Invita un amico</h2><button class="link-btn" data-info="invita">Come funziona</button></div>
+                    <div class="card">
+                        <p class="muted small" id="inviteText"></p>
+                        <div class="invite-box">
+                            <input type="text" class="field" id="inviteLink" readonly aria-label="Il tuo link di invito">
+                            <button class="btn btn-primary btn-small" id="shareBtn">Condividi</button>
+                        </div>
+                    </div>
+                </div>
+                <p class="tiny" id="tgIdNote" style="margin-top:18px;text-align:center"></p>
+            </div>
+        </section>
+
+        <!-- ============================== INFO ============================== -->
+        <section id="tab-info" role="tabpanel" aria-labelledby="t-info" hidden>
+            <h2 style="margin-bottom:4px">Tutto chiaro, niente di nascosto</h2>
+            <p class="muted small" style="margin-bottom:12px">Tocca un punto per leggerlo. I numeri vengono dal server e dai programmi Awin dei negozi, non sono scritti a mano.</p>
+            <div class="card" id="infoList"></div>
+            <div class="card">
+                <button class="list-row" onclick="location.href='termini.html'">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 13h6M10 17h6"/></svg>
+                    <div><b>Termini e condizioni</b><span>Le regole complete del servizio</span></div>
+                    <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+                </button>
+                <button class="list-row" onclick="location.href='privacy.html'">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/></svg>
+                    <div><b>Privacy</b><span>Quali dati usiamo e perché</span></div>
+                    <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+                </button>
+            </div>
+        </section>
+
+        <!-- ============================== ADMIN ============================== -->
+        <section id="tab-admin" role="tabpanel" aria-labelledby="t-admin" hidden>
+            <h2 style="margin-bottom:10px">Gestione</h2>
+            <p class="tiny" style="margin-bottom:12px">Questa sezione la vedi solo tu.</p>
+            <div class="card">
+                <h3>Prelievi da pagare</h3>
+                <p class="muted small" style="margin:4px 0 10px">Paga con il metodo scelto, poi segna la richiesta come pagata.</p>
+                <div id="adminList"></div>
+                <p class="muted small" id="adminEmpty" hidden>Nessuna richiesta in attesa.</p>
+            </div>
+            <div class="card">
+                <h3>Segnalazioni dei negozi</h3>
+                <p class="muted small" style="margin:4px 0 10px">Raggruppate per negozio, prima le più richieste. La risposta arriva a tutti quelli che l'hanno chiesto.</p>
+                <div id="reqAdminList"></div>
+                <p class="muted small" id="reqAdminEmpty" hidden>Nessuna segnalazione aperta.</p>
+            </div>
+            <div class="card">
+                <h3>Configurazione</h3>
+                <p class="muted small" style="margin:4px 0 10px">Collega il bot alla Mini App, controlla Awin e l'email, e mostra l'indirizzo per le notifiche Awin.</p>
+                <button class="btn btn-primary" id="setupBtn">Configura e verifica</button>
+                <div id="setupResult" hidden class="small" style="margin-top:12px;display:flex;flex-direction:column;gap:4px"></div>
+                <div id="notifyBox" hidden style="margin-top:12px">
+                    <p class="tiny" style="margin-bottom:6px">Da incollare in Awin, Strumenti &gt; Notifiche transazione (metodo POST):</p>
+                    <div class="invite-box" style="margin-top:0">
+                        <input type="text" class="field" id="notifyUrl" readonly aria-label="Indirizzo per Awin">
+                        <button class="btn btn-soft btn-small" id="copyNotify">Copia</button>
                     </div>
                 </div>
             </div>
-        </div>
-    </div>
+        </section>
 
-    <!-- Footer -->
-    <div class="py-4 text-center text-xs text-slate-400 bg-slate-800">
-        <div class="mb-2">
-            <a href="termini.html" class="hover:text-blue-400 underline transition">Termini e Condizioni</a>
-            <span class="mx-2">&bull;</span>
-            <a href="privacy.html" class="hover:text-blue-400 underline transition">Privacy Policy</a>
-        </div>
-        <p>I link verso i negozi sono link di affiliazione. Powered by Awin Network</p>
-        <p id="tgIdNote" class="hidden mt-2 text-slate-500"></p>
-    </div>
+        <footer class="footer">
+            <p>I link verso i negozi sono link di affiliazione del network Awin.</p>
+            <p><a href="termini.html">Termini</a> &nbsp; <a href="privacy.html">Privacy</a></p>
+        </footer>
+    </main>
 
-    <!-- Pannello prelievo -->
-    <div id="withdrawSheet" class="hidden fixed inset-0 bg-black/40 flex items-end z-40">
-        <div class="sheet w-full bg-white rounded-t-3xl p-6">
-            <h3 class="font-bold text-lg mb-1">Preleva il saldo</h3>
-            <p class="text-sm text-slate-500 mb-4">Importo: <span id="withdrawAmount" class="font-bold text-slate-800"></span></p>
-            <label class="text-xs font-semibold text-slate-500 uppercase">Come vuoi riceverlo</label>
-            <select id="withdrawMethod" class="w-full mt-1 mb-3 px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm">
-                <option value="buono_regalo">Buono regalo digitale (via email)</option>
-                <option value="paypal">PayPal</option>
-            </select>
-            <label class="text-xs font-semibold text-slate-500 uppercase">Email</label>
-            <input type="email" id="withdrawEmail" placeholder="nome@esempio.it" class="w-full mt-1 mb-2 px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm">
-            <p class="text-xs text-slate-400 mb-4">Paghiamo le richieste a mano, di solito entro 7 giorni lavorativi.</p>
-            <div class="flex gap-2">
-                <button id="withdrawCancel" class="flex-1 bg-slate-100 text-slate-700 font-bold py-3 rounded-xl">Annulla</button>
-                <button id="withdrawConfirm" class="flex-1 bg-blue-600 text-white font-bold py-3 rounded-xl">Conferma</button>
+    <nav class="tabbar" role="tablist" aria-label="Sezioni">
+        <button class="tab" role="tab" id="t-shop" aria-controls="tab-shop" aria-selected="true" data-tab="shop">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 8h14l-1.2 12H6.2z"/><path d="M9 8V6.5a3 3 0 0 1 6 0V8"/></svg>
+            Negozi
+        </button>
+        <button class="tab" role="tab" id="t-wallet" aria-controls="tab-wallet" aria-selected="false" data-tab="wallet">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H18v4"/><rect x="4" y="7" width="16" height="12" rx="2.5"/><circle cx="16" cy="13" r="1.3" fill="currentColor"/></svg>
+            Il mio saldo
+        </button>
+        <button class="tab" role="tab" id="t-info" aria-controls="tab-info" aria-selected="false" data-tab="info">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg>
+            Info
+        </button>
+        <button class="tab" role="tab" id="t-admin" aria-controls="tab-admin" aria-selected="false" data-tab="admin" hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/><path d="M9 12l2 2 4-4"/></svg>
+            Admin
+        </button>
+    </nav>
+
+    <!-- Popup generico (informazioni, scheda negozio, moduli) -->
+    <div class="sheet" id="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+        <div class="sheet-backdrop" data-close></div>
+        <div class="sheet-panel">
+            <div class="sheet-grip" aria-hidden="true"></div>
+            <div class="sheet-head">
+                <h2 id="sheetTitle"></h2>
+                <button class="sheet-close" data-close aria-label="Chiudi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
             </div>
+            <div class="sheet-body" id="sheetBody"></div>
+            <div class="sheet-actions" id="sheetActions"></div>
         </div>
     </div>
 
-    <!-- Scheda negozio -->
-    <div id="storeSheet" class="hidden fixed inset-0 bg-black/40 flex items-end z-40">
-        <div class="sheet w-full bg-white rounded-t-3xl p-6 max-h-[88vh] overflow-y-auto">
-            <div class="flex justify-between items-start gap-3 mb-3">
-                <div>
-                    <h3 id="ssName" class="font-bold text-lg text-slate-800"></h3>
-                    <p id="ssCategory" class="text-xs text-slate-500"></p>
-                </div>
-                <button id="ssClose" class="text-slate-400 text-2xl leading-none px-2" aria-label="Chiudi">&times;</button>
-            </div>
-            <div id="ssBody" class="space-y-5 text-sm text-slate-700"></div>
-            <button id="ssGo" class="w-full mt-5 bg-blue-600 text-white font-bold py-3 rounded-xl">Vai al negozio</button>
-        </div>
-    </div>
-
-    <!-- Messaggi -->
-    <div id="toast" class="hidden fixed left-4 right-4 bottom-6 z-50 text-white text-sm font-semibold px-4 py-3 rounded-xl shadow-lg"></div>
+    <div class="toast" id="toast" hidden role="status" aria-live="polite"></div>
 
     <script>
         // Indirizzo del server su Cloudflare Workers.
         const API_BASE = 'https://cashback-bot.alelimpo.workers.dev';
+        const BOT_USERNAME = 'MioCashback_bot';
 
         const tg = window.Telegram && window.Telegram.WebApp;
         const initData = tg && tg.initData ? tg.initData : '';
-        if (tg) { tg.ready(); tg.expand(); }
+        if (tg) { try { tg.ready(); tg.expand(); } catch (e) { /* vecchie versioni */ } }
 
         const ERRORS = {
             unauthorized: 'Sessione scaduta: chiudi e riapri la Mini App.',
             store_not_found: 'Questo negozio non è più disponibile.',
             url_not_for_store: 'Il link non appartiene a questo negozio.',
             invalid_url: 'Il link non è valido.',
-            rate_limited: 'Troppe richieste: riprova tra un minuto.',
+            rate_limited: 'Troppe richieste ravvicinate: riprova tra un minuto.',
             below_minimum: 'Non hai ancora raggiunto la soglia minima di prelievo.',
             request_pending: 'Hai già una richiesta di prelievo in corso.',
             invalid_destination: "Controlla l'indirizzo email.",
-            invalid_method: 'Scegli un metodo di pagamento.',
+            invalid_method: 'Scegli come vuoi ricevere i soldi.',
             already_processed: 'Questa richiesta è già stata gestita.',
-            network: 'Connessione non riuscita: riprova.',
+            invalid_store_name: 'Scrivi il nome del negozio (almeno 2 lettere).',
+            invalid_website: "Controlla l'indirizzo del sito, per esempio zalando.it",
+            store_available: 'Questo negozio è già nella Mini App: lo trovi nella lista.',
+            already_requested: "L'hai già segnalato: ti scriviamo sul bot appena abbiamo novità.",
+            reply_required: "Scrivi l'alternativa da proporre.",
+            network: 'Connessione non riuscita: controlla la rete e riprova.',
         };
-        const STATES = {
-            pending: { label: 'In attesa del negozio', cls: 'text-amber-600' },
-            approved: { label: 'Approvato, in arrivo', cls: 'text-blue-600' },
-            available: { label: 'Disponibile', cls: 'text-green-600' },
-            cancelled: { label: 'Annullato', cls: 'text-slate-400 line-through' },
+        const DEFAULT_PROGRAM = { userSharePercent: 60, minPayoutCents: 1000, referralBonusCents: 200, payoutWorkingDays: 7 };
+        const REQUEST_STATUS = {
+            new: { label: 'Ricevuta', cls: '' },
+            working: { label: 'Ci stiamo lavorando', cls: 'warn' },
+            added: { label: 'Aggiunto', cls: 'pos' },
+            alternative: { label: 'Alternativa proposta', cls: '' },
+            not_possible: { label: 'Non disponibile', cls: 'danger' },
         };
 
-        let state = { stores: [], balance: null, program: null, currentStore: null };
+        const state = { stores: [], balance: null, program: null, me: null, category: 'Tutti' };
         const $ = (id) => document.getElementById(id);
+        const prog = () => state.program || DEFAULT_PROGRAM;
 
+        // ------------------------------------------------------------ tema Telegram
+        function applyTheme() {
+            const dark = tg && tg.colorScheme ? tg.colorScheme === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+            document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+            if (tg) {
+                const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
+                try { tg.setHeaderColor(bg); tg.setBackgroundColor(bg); } catch (e) { /* non supportato */ }
+                try { tg.setBottomBarColor && tg.setBottomBarColor(getComputedStyle(document.documentElement).getPropertyValue('--surface').trim()); } catch (e) { /* non supportato */ }
+            }
+        }
+        applyTheme();
+        if (tg && tg.onEvent) tg.onEvent('themeChanged', applyTheme);
+
+        // ------------------------------------------------------------ utilita'
         function euro(cents) {
             return (cents / 100).toLocaleString('it-IT', { style: 'currency', currency: 'EUR' });
         }
@@ -206,16 +524,34 @@
             if (text !== undefined && text !== null) node.textContent = text;
             return node;
         }
+        function para(text, cls) { return el('p', cls || '', text); }
+        function bullets(items) {
+            const ul = el('ul', 'bul');
+            for (const t of items) ul.append(el('li', '', t));
+            return ul;
+        }
+        function steps(items) {
+            const ol = el('ol', 'steps');
+            items.forEach(([title, text], i) => {
+                const li = el('li');
+                const body = el('div');
+                body.append(el('b', '', title), el('span', '', text));
+                li.append(el('div', 'step-n', String(i + 1)), body);
+                ol.append(li);
+            });
+            return ol;
+        }
         function haptic(type) {
-            if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred(type);
+            try { if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred(type); } catch (e) { /* niente */ }
         }
         let toastTimer;
         function toast(message, isError) {
             const t = $('toast');
             t.textContent = message;
-            t.className = 'fixed left-4 right-4 bottom-6 z-50 text-white text-sm font-semibold px-4 py-3 rounded-xl shadow-lg ' + (isError ? 'bg-red-600' : 'bg-slate-900');
+            t.className = 'toast' + (isError ? ' err' : '');
+            t.hidden = false;
             clearTimeout(toastTimer);
-            toastTimer = setTimeout(() => t.classList.add('hidden'), 3500);
+            toastTimer = setTimeout(() => { t.hidden = true; }, 3800);
             haptic(isError ? 'error' : 'success');
         }
         function errorText(err) {
@@ -223,8 +559,8 @@
         }
         function ask(message) {
             return new Promise((resolve) => {
-                if (tg && tg.showConfirm) tg.showConfirm(message, resolve);
-                else resolve(window.confirm(message));
+                if (tg && tg.showConfirm) { try { tg.showConfirm(message, resolve); return; } catch (e) { /* sotto */ } }
+                resolve(window.confirm(message));
             });
         }
         function openExternal(url) {
@@ -248,244 +584,359 @@
             return data;
         }
 
-        // ------------------------------------------------------------ disegno
+        // ------------------------------------------------------------ popup
+        let sheetOnClose = null;
+        function openSheet(title, build, actions) {
+            const sheet = $('sheet');
+            $('sheetTitle').textContent = title;
+            const body = $('sheetBody');
+            body.replaceChildren();
+            build(body);
+            const act = $('sheetActions');
+            act.replaceChildren();
+            const list = actions || [{ label: 'Ho capito', cls: 'btn-soft', close: true }];
+            for (const a of list) {
+                const b = el('button', 'btn ' + (a.cls || 'btn-primary'), a.label);
+                if (a.id) b.id = a.id;
+                b.addEventListener('click', async () => {
+                    if (a.onClick) await a.onClick(b);
+                    if (a.close) closeSheet();
+                });
+                act.append(b);
+            }
+            sheet.hidden = false;
+            sheet.querySelector('.sheet-panel').scrollTop = 0;
+            document.body.classList.add('locked');
+            requestAnimationFrame(() => requestAnimationFrame(() => sheet.classList.add('open')));
+            if (tg && tg.BackButton) { try { tg.BackButton.show(); } catch (e) { /* niente */ } }
+            setTimeout(() => { const f = sheet.querySelector('input, textarea, select'); if (f && f.dataset.autofocus) f.focus(); else sheet.querySelector('.sheet-close').focus({ preventScroll: true }); }, 60);
+        }
+        function closeSheet() {
+            const sheet = $('sheet');
+            if (sheet.hidden) return;
+            sheet.classList.remove('open');
+            document.body.classList.remove('locked');
+            if (tg && tg.BackButton) { try { tg.BackButton.hide(); } catch (e) { /* niente */ } }
+            setTimeout(() => { if (!sheet.classList.contains('open')) sheet.hidden = true; }, 230);
+            if (sheetOnClose) { const fn = sheetOnClose; sheetOnClose = null; fn(); }
+        }
+        $('sheet').addEventListener('click', (e) => { if (e.target.closest('[data-close]')) closeSheet(); });
+        document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeSheet(); });
+        if (tg && tg.BackButton && tg.BackButton.onClick) tg.BackButton.onClick(closeSheet);
+
+        // ------------------------------------------------------------ informazioni (popup)
+        function paymentRange() {
+            const days = state.stores.map((s) => s.timing && s.timing.avgPaymentDays).filter((d) => d > 0);
+            if (!days.length) return null;
+            const lo = Math.max(1, Math.round(Math.min(...days) / 30));
+            const hi = Math.max(lo, Math.round(Math.max(...days) / 30));
+            return lo === hi ? 'circa ' + lo + (lo === 1 ? ' mese' : ' mesi') : 'da ' + lo + ' a ' + hi + ' mesi';
+        }
+
+        const INFO = {
+            come: {
+                title: 'Come funziona',
+                hint: 'Tre passi, stesso prezzo',
+                icon: '<path d="M4 12h12M12 6l6 6-6 6"/>',
+                build(b) {
+                    const p = prog();
+                    b.append(steps([
+                        ['Scegli il negozio da qui', 'Tocca "Apri" sul negozio: il link ci collega al tuo acquisto.'],
+                        ['Compra come sempre', 'Stesso sito, stessi prezzi e stesse offerte del negozio. Non paghi niente in più.'],
+                        ['Una parte ti torna indietro', 'Il negozio ci paga una commissione e il ' + p.userSharePercent + '% è tuo. Lo vedi nel saldo e lo prelevi da ' + euro(p.minPayoutCents) + '.'],
+                    ]));
+                    b.append(para('La spesa l\'avresti fatta comunque. In un periodo in cui ogni euro conta, partendo da qui una parte ti torna indietro. Comprando normalmente non avresti niente.', 'box'));
+                },
+            },
+            perche: {
+                title: 'Perché conviene',
+                hint: 'All\'estero è normale, in Italia è raro',
+                icon: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.7 5.6 3.7 9s-1.2 6.4-3.7 9c-2.5-2.6-3.7-5.6-3.7-9S9.5 5.6 12 3z"/>',
+                build(b) {
+                    const p = prog();
+                    b.append(para('Negli Stati Uniti è normale avere una carta di credito che restituisce l\'1-2% di ogni spesa, su qualsiasi acquisto.'));
+                    b.append(para('In Europa la legge limita le commissioni che i negozi pagano sulle carte: al massimo 0,2% per le carte di debito e 0,3% per quelle di credito (Regolamento UE 2015/751). Alle banche resta poco da restituire. Per questo in Italia le carte con cashback sono poche e danno poco: di solito con un tetto al mese, un canone, solo in alcuni negozi o per pochi mesi.'));
+                    b.append(para('Noi usiamo un\'altra strada. I negozi online pagano una commissione a chi porta loro clienti, di solito tra l\'1% e il 15% a seconda del negozio e di cosa compri. Il ' + p.userSharePercent + '% di quella commissione lo giriamo a te.'));
+                    b.append(para('Di solito si somma: se la tua carta ti dà già un cashback, lo tieni, e in più ricevi il nostro.', 'box'));
+                },
+            },
+            quota: {
+                title: 'Chi prende cosa',
+                hint: 'La parte più grande è tua',
+                icon: '<circle cx="12" cy="12" r="9"/><path d="M12 3v9l6.4 6.4"/>',
+                build(b) {
+                    const p = prog();
+                    const ours = 100 - p.userSharePercent;
+                    const you = (10 * p.userSharePercent) / 100;
+                    b.append(splitBar(p, true));
+                    b.append(para('Per ogni acquisto il negozio ci paga una commissione. Il ' + p.userSharePercent + '% va a te, noi teniamo il ' + ours + '% per gestire il servizio, i pagamenti e l\'assistenza.'));
+                    b.append(para('Esempio: spendi 100 € e il negozio ci paga il 10%, cioè 10 €. A te vanno ' + euro(you * 100) + ', a noi ' + euro((10 - you) * 100) + '.', 'box'));
+                    b.append(para('Le percentuali che vedi nei negozi sono già la tua parte. Nella scheda di ogni negozio trovi anche quanto paga a noi, categoria per categoria.', 'muted'));
+                },
+            },
+            tempi: {
+                title: 'Quanto tempo serve',
+                hint: 'Lunghi, ma sempre visibili',
+                icon: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+                build(b) {
+                    const range = paymentRange();
+                    b.append(para('Il negozio ci paga solo dopo aver confermato l\'ordine, cioè passato il tempo per i resi, e dopo aver pagato Awin. ' + (range ? 'Con i negozi di oggi servono in media ' + range + '.' : 'Spesso passano alcuni mesi.')));
+                    b.append(bullets([
+                        'Per ogni negozio vedi il tempo medio secondo Awin e lo stato dei pagamenti del negozio.',
+                        'Per ogni acquisto vedi una data indicativa in cui diventa prelevabile.',
+                        'Ti scriviamo sul bot a ogni passaggio: registrato, approvato, disponibile.',
+                    ]));
+                    b.append(para('Sono medie del passato, non promesse: un negozio può pagare prima o dopo.', 'muted'));
+                },
+            },
+            fasi: {
+                title: 'Le tre fasi di un acquisto',
+                hint: 'Dal clic al saldo',
+                icon: '<circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/><path d="M7 12h3M14 12h3"/>',
+                build(b) {
+                    b.append(steps([
+                        ['In attesa', 'L\'acquisto è registrato. Il negozio aspetta che passi il tempo per i resi.'],
+                        ['Approvato, in arrivo', 'Il negozio ha confermato l\'ordine. Aspettiamo che paghi la commissione.'],
+                        ['Disponibile', 'Awin ci ha pagato: l\'importo è nel saldo prelevabile.'],
+                    ]));
+                    b.append(para('Se l\'ordine viene reso o annullato, l\'acquisto diventa "Annullato" e quell\'importo non arriva.', 'muted'));
+                },
+            },
+            prelievo: {
+                title: 'Come prelevare',
+                hint: 'PayPal o buono regalo',
+                icon: '<rect x="3" y="6" width="18" height="12" rx="2.5"/><circle cx="12" cy="12" r="2.5"/>',
+                build(b) {
+                    const p = prog();
+                    b.append(bullets([
+                        'Puoi prelevare quando il saldo disponibile arriva a ' + euro(p.minPayoutCents) + '.',
+                        'Ricevi i soldi con PayPal o con un buono regalo digitale via email.',
+                        'Paghiamo a mano, di solito entro ' + p.payoutWorkingDays + ' giorni lavorativi, e ti avvisiamo sul bot.',
+                        'Una richiesta alla volta: preleviamo tutto il saldo disponibile.',
+                    ]));
+                },
+            },
+            annulli: {
+                title: 'Quando il cashback si annulla',
+                hint: 'Resi e ultimo clic',
+                icon: '<circle cx="12" cy="12" r="9"/><path d="M8.5 8.5l7 7M15.5 8.5l-7 7"/>',
+                build(b) {
+                    b.append(bullets([
+                        'Restituisci o annulli l\'ordine (se lo restituisci in parte, il cashback si riduce).',
+                        'Prima di pagare clicchi il link di un altro sito di sconti o cashback: conta l\'ultimo clic.',
+                        'Usi un codice sconto trovato su altri siti, se il negozio non lo permette.',
+                        'Compri dall\'app del negozio quando la sua scheda dice che l\'app non viene registrata.',
+                    ]));
+                    b.append(para('Ogni negozio ha le sue regole: le trovi nella sua scheda, prese dai termini del negozio su Awin.', 'muted'));
+                },
+            },
+            invita: {
+                title: 'Invita un amico',
+                hint: 'Il bonus lo paghiamo noi',
+                icon: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.5 3.3-5.5 6.5-5.5s5.7 2 6.5 5.5M17.5 8v6M14.5 11h6"/>',
+                build(b) {
+                    const p = prog();
+                    b.append(para(p.referralBonusCents > 0
+                        ? 'Ricevi ' + euro(p.referralBonusCents) + ' quando un amico che hai invitato con il tuo link ottiene il suo primo cashback disponibile.'
+                        : 'Condividi il bot con chi fa acquisti online.'));
+                    b.append(para('Il bonus lo paghiamo noi: all\'amico non viene tolto nulla.', 'box'));
+                    b.append(para('Il tuo link è nella sezione "Il mio saldo". Inviti a te stesso o account creati apposta non valgono.', 'muted'));
+                },
+            },
+        };
+        const HOME_TILES = ['come', 'perche', 'quota', 'tempi'];
+
+        function infoIcon(paths) {
+            return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + paths + '</svg>';
+        }
+        function openInfo(key) {
+            const info = INFO[key];
+            if (info) openSheet(info.title, (b) => info.build(b));
+        }
+        function renderInfoButtons() {
+            const tiles = $('homeTiles');
+            tiles.replaceChildren();
+            for (const key of HOME_TILES) {
+                const t = el('button', 'tile');
+                t.dataset.info = key;
+                t.innerHTML = infoIcon(INFO[key].icon);
+                t.append(el('b', '', INFO[key].title), el('span', '', INFO[key].hint));
+                tiles.append(t);
+            }
+            const list = $('infoList');
+            list.replaceChildren();
+            for (const key of Object.keys(INFO)) {
+                const r = el('button', 'list-row');
+                r.dataset.info = key;
+                r.innerHTML = infoIcon(INFO[key].icon);
+                const txt = el('div');
+                txt.append(el('b', '', INFO[key].title), el('span', '', INFO[key].hint));
+                r.append(txt);
+                r.insertAdjacentHTML('beforeend', '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>');
+                list.append(r);
+            }
+        }
+        document.addEventListener('click', (e) => {
+            const b = e.target.closest('[data-info]');
+            if (b) openInfo(b.dataset.info);
+        });
+
+        function splitBar(p, onLight) {
+            const wrap = el('div', 'split' + (onLight ? ' on-light' : ''));
+            const bar = el('div', 'split-bar');
+            const you = el('span', 'split-you', p.userSharePercent + '% a te');
+            you.style.width = p.userSharePercent + '%';
+            const us = el('span', 'split-us', (100 - p.userSharePercent) + '% a noi');
+            us.style.width = (100 - p.userSharePercent) + '%';
+            bar.append(you, us);
+            wrap.append(bar);
+            return wrap;
+        }
+        function renderSplit() {
+            const p = prog();
+            $('splitYou').textContent = p.userSharePercent + '% a te';
+            $('splitYou').style.width = p.userSharePercent + '%';
+            $('splitUs').textContent = (100 - p.userSharePercent) + '% a noi';
+            $('splitUs').style.width = (100 - p.userSharePercent) + '%';
+        }
+
+        // ------------------------------------------------------------ tab
+        function showTab(name) {
+            for (const t of document.querySelectorAll('.tab')) {
+                const on = t.dataset.tab === name;
+                t.setAttribute('aria-selected', on ? 'true' : 'false');
+                $('tab-' + t.dataset.tab).hidden = !on;
+            }
+            window.scrollTo({ top: 0 });
+            try { if (tg && tg.HapticFeedback) tg.HapticFeedback.selectionChanged(); } catch (e) { /* niente */ }
+        }
+        for (const t of document.querySelectorAll('.tab')) t.addEventListener('click', () => showTab(t.dataset.tab));
+
+        // ------------------------------------------------------------ negozi
+        function logoNode(s) {
+            const box = el('div', 'logo');
+            const mono = () => { box.className = 'logo mono'; box.replaceChildren(document.createTextNode((s.name || '?').trim().charAt(0).toUpperCase())); };
+            if (s.logo) {
+                const img = el('img');
+                img.alt = '';
+                img.loading = 'lazy';
+                img.src = s.logo;
+                img.addEventListener('error', mono);
+                box.append(img);
+            } else mono();
+            return box;
+        }
+
+        function renderChips() {
+            const cats = [...new Set(state.stores.map((s) => s.category).filter(Boolean))].sort();
+            const chips = $('chips');
+            chips.replaceChildren();
+            chips.hidden = cats.length < 2;
+            for (const c of ['Tutti', ...cats]) {
+                const b = el('button', 'chip', c);
+                b.setAttribute('aria-pressed', state.category === c ? 'true' : 'false');
+                b.addEventListener('click', () => { state.category = c; renderChips(); renderStores(); });
+                chips.append(b);
+            }
+        }
 
         function renderStores() {
             const q = $('storeSearch').value.trim().toLowerCase();
             const list = $('storeList');
             list.replaceChildren();
-            const shown = state.stores.filter((s) => !q || s.name.toLowerCase().includes(q) || (s.category || '').toLowerCase().includes(q));
-            $('storesEmpty').classList.toggle('hidden', state.stores.length > 0);
+            const shown = state.stores.filter((s) =>
+                (state.category === 'Tutti' || s.category === state.category)
+                && (!q || s.name.toLowerCase().includes(q) || (s.category || '').toLowerCase().includes(q)));
+            $('storesEmpty').hidden = state.stores.length > 0;
+            // Senza negozi attivi la ricerca e il link prodotto non servono.
+            $('storeSearch').hidden = state.stores.length === 0;
+            $('productCard').hidden = state.stores.length === 0;
+            $('storesHint').hidden = state.stores.length === 0;
+            $('noMatch').hidden = !(state.stores.length > 0 && shown.length === 0);
             for (const s of shown) {
-                const row = el('div', 'flex items-center justify-between gap-3 py-3');
-                const info = el('button', 'min-w-0 text-left flex-1');
-                info.append(el('p', 'font-semibold text-slate-800 truncate', s.name));
-                const sub = el('p', 'text-xs text-slate-500');
-                sub.append(el('span', 'font-bold text-green-600', s.cashbackLabel));
-                if (s.note) sub.append(document.createTextNode(' · ' + s.note));
-                info.append(sub, el('p', 'text-xs text-blue-600 font-semibold mt-0.5', 'Dettagli, tempi e regole'));
-                info.addEventListener('click', () => openStoreSheet(s));
-                const btn = el('button', 'shrink-0 bg-blue-600 text-white text-sm font-bold py-2 px-4 rounded-xl', 'Vai');
-                btn.addEventListener('click', () => openStore(s.id, null, btn));
-                row.append(info, btn);
+                const row = el('div', 'store');
+                const main = el('button', 'store-main');
+                main.setAttribute('aria-label', s.name + ', cashback ' + s.cashbackLabel + ': dettagli');
+                const txt = el('div');
+                txt.style.minWidth = '0';
+                txt.append(el('p', 'store-name', s.name), el('p', 'store-rate', s.cashbackLabel), el('p', 'store-sub', s.note || s.category || 'Tocca per tempi e regole'));
+                main.append(logoNode(s), txt);
+                main.addEventListener('click', () => openStoreSheet(s));
+                const go = el('button', 'btn-go', 'Apri');
+                go.setAttribute('aria-label', 'Apri ' + s.name + ' con cashback');
+                go.addEventListener('click', () => openStore(s.id, null, go));
+                row.append(main, go);
                 list.append(row);
             }
-        }
-
-        // Sezione "Come funziona": i numeri arrivano dal server, cosi' restano sempre veri.
-        function renderHow(p, firstTime) {
-            if (!p) return;
-            const body = $('howBody');
-            body.replaceChildren();
-            const block = (title, text) => {
-                const d = el('div');
-                d.append(el('p', 'font-semibold text-slate-800', title), el('p', '', text));
-                body.append(d);
-            };
-            const ours = 100 - p.userSharePercent;
-            const exUser = (10 * p.userSharePercent) / 100;
-            block('Spendi come sempre, ti torna indietro qualcosa',
-                'La spesa l\'avresti fatta comunque. Se la fai partendo da qui, paghi lo stesso prezzo e in più ti torna indietro una parte dei soldi. Comprando normalmente non avresti niente.');
-            block('La parte più grande è tua',
-                'Per ogni acquisto il negozio ci paga una commissione. Il ' + p.userSharePercent + '% va a te, noi teniamo il ' + ours + '% per far funzionare il servizio. Le percentuali che vedi nei negozi sono già la tua parte.');
-            block('Un esempio',
-                'Spendi 100 € e il negozio ci paga il 10%, cioè 10 €. A te vanno ' + euro(exUser * 100) + ', a noi ' + euro((10 - exUser) * 100) + '.');
-            block('I tempi sono lunghi, ma li vedi sempre',
-                'Il negozio ci paga solo dopo aver confermato l\'ordine, e spesso passano mesi. Per ogni negozio ti mostriamo i tempi medi secondo Awin, e per ogni acquisto la data in cui dovrebbe diventare prelevabile. Ti scriviamo noi a ogni passaggio.');
-            block('Le tre fasi',
-                'In attesa: l\'acquisto è registrato. Approvato: il negozio ha confermato l\'ordine. Disponibile: Awin ci ha pagato e puoi prelevare.');
-            block('Prelievo',
-                'Da ' + euro(p.minPayoutCents) + ' di saldo disponibile, con PayPal o buono regalo digitale via email. Paghiamo a mano, di solito entro ' + p.payoutWorkingDays + ' giorni lavorativi.');
-            block('Quando il cashback viene annullato',
-                'Se restituisci o annulli l\'ordine, o se il negozio non lo riconosce: per esempio perché prima di pagare hai cliccato il link di un altro sito di sconti. Le regole di ogni negozio sono nella sua scheda.');
-            if (p.referralBonusCents > 0) {
-                block('Invita un amico',
-                    'Ricevi ' + euro(p.referralBonusCents) + ' quando un amico che hai invitato ottiene il suo primo cashback disponibile. Il bonus lo paghiamo noi: all\'amico non viene tolto nulla.');
-            }
-            const more = el('a', 'text-blue-600 font-semibold underline', 'Leggi i Termini completi');
-            more.href = 'termini.html';
-            body.append(more);
-            if (firstTime) $('howCard').open = true;
-        }
-
-        function renderTagline(p) {
-            if (p) $('tagline').textContent = 'Stesso prezzo di sempre. Il ' + p.userSharePercent + '% della commissione è tuo, noi teniamo il ' + (100 - p.userSharePercent) + '%.';
-        }
-
-        function section(title) {
-            const wrap = el('div');
-            wrap.append(el('p', 'text-xs font-bold text-slate-500 uppercase tracking-wider mb-2', title));
-            return wrap;
-        }
-        function bullets(items) {
-            const ul = el('ul', 'list-disc pl-5 space-y-1');
-            for (const t of items) ul.append(el('li', '', t));
-            return ul;
         }
 
         function openStoreSheet(s) {
-            state.currentStore = s;
-            const p = state.program || { userSharePercent: 60 };
-            $('ssName').textContent = s.name;
-            $('ssCategory').textContent = (s.category ? s.category + ' · ' : '') + 'cashback ' + s.cashbackLabel;
-            const body = $('ssBody');
-            body.replaceChildren();
+            const p = prog();
+            openSheet(s.name, (body) => {
+                const head = el('div', 'card-row');
+                head.style.justifyContent = 'flex-start';
+                const hl = el('div');
+                hl.append(el('p', 'store-rate', 'Cashback ' + s.cashbackLabel), el('p', 'tiny', s.category || ''));
+                head.append(logoNode(s), hl);
+                body.append(head);
 
-            // Quanto ricevi
-            const rates = section('Quanto ricevi');
-            const table = el('table', 'w-full text-sm');
-            const head = el('tr', 'text-xs text-slate-500');
-            head.append(el('th', 'text-left font-semibold pb-1', 'Categoria'), el('th', 'text-right font-semibold pb-1 px-2', 'Il negozio ci paga'), el('th', 'text-right font-semibold pb-1', 'A te'));
-            table.append(head);
-            for (const r of s.rates || []) {
-                const zero = r.youGet === '0%' || r.youGet === '0,00 €';
-                const tr = el('tr', 'border-t border-slate-100');
-                tr.append(
-                    el('td', 'py-1.5 pr-2', r.label),
-                    el('td', 'py-1.5 px-2 text-right text-slate-500 whitespace-nowrap', r.storePays),
-                    el('td', 'py-1.5 text-right font-bold whitespace-nowrap ' + (zero ? 'text-slate-400' : 'text-green-600'), zero ? 'nessuno' : r.youGet),
-                );
-                table.append(tr);
-            }
-            rates.append(table, el('p', 'text-xs text-slate-500 mt-2', 'A te va il ' + p.userSharePercent + '% di quello che il negozio ci paga. Il cashback esatto dipende dalla categoria di ciò che compri.'));
-            body.append(rates);
+                body.append(el('p', 'sub-h', 'Quanto ricevi'));
+                const table = el('table', 'rates');
+                const hr = el('tr');
+                hr.append(el('th', '', 'Categoria'), el('th', '', 'Commissione'), el('th', '', 'A te'));
+                table.append(hr);
+                for (const r of s.rates || []) {
+                    const zero = r.youGet === '0%' || r.youGet === '0,00 €';
+                    const tr = el('tr');
+                    tr.append(el('td', '', r.label), el('td', 'muted', r.storePays), el('td', zero ? 'none' : 'you', zero ? 'nessuno' : r.youGet));
+                    table.append(tr);
+                }
+                body.append(table, para('La commissione è quello che il negozio paga a noi: a te ne va il ' + p.userSharePercent + '%. Il cashback esatto dipende dalla categoria di ciò che compri.', 'tiny'));
 
-            // Quando arriva
-            const t = s.timing || {};
-            const when = section('Quando arriva');
-            const lines = [];
-            if (t.validationDays) lines.push('Il negozio conferma gli ordini in media in ' + t.validationDays + ' giorni, il tempo per eventuali resi.');
-            if (t.avgPaymentDays) {
-                const months = Math.max(1, Math.round(t.avgPaymentDays / 30));
-                lines.push('In media il cashback diventa prelevabile ' + t.avgPaymentDays + ' giorni dopo l\'acquisto (circa ' + months + (months === 1 ? ' mese' : ' mesi') + '): è il tempo che il negozio impiega a pagare la commissione.');
-            } else {
-                lines.push('Awin non ha ancora un tempo medio di pagamento per questo negozio. Ti avvisiamo con un messaggio quando il cashback è disponibile.');
-            }
-            if (t.approvalPercent !== null && t.approvalPercent !== undefined) {
-                lines.push('In media il negozio conferma il ' + String(t.approvalPercent).replace('.', ',') + '% degli ordini. Gli altri vengono annullati: resi, ordini cancellati o non riconosciuti.');
-            }
-            if (t.autoApproveDays) lines.push('Se il negozio non conferma né annulla l\'ordine, Awin lo approva da solo dopo ' + t.autoApproveDays + ' giorni.');
-            if (t.payment && t.payment.text) lines.push(t.payment.text + (t.payment.checkedAt ? ' (dato Awin del ' + day(t.payment.checkedAt) + ')' : ''));
-            when.append(bullets(lines));
-            body.append(when);
+                const t = s.timing || {};
+                const lines = [];
+                if (t.validationDays) lines.push('Il negozio conferma gli ordini in media in ' + t.validationDays + ' giorni, il tempo per eventuali resi.');
+                if (t.avgPaymentDays) {
+                    const months = Math.max(1, Math.round(t.avgPaymentDays / 30));
+                    lines.push('In media il cashback diventa prelevabile ' + t.avgPaymentDays + ' giorni dopo l\'acquisto (circa ' + months + (months === 1 ? ' mese' : ' mesi') + '): è il tempo che il negozio impiega a pagare la commissione.');
+                } else {
+                    lines.push('Awin non ha ancora un tempo medio di pagamento per questo negozio. Ti avvisiamo sul bot quando il cashback è disponibile.');
+                }
+                if (t.approvalPercent !== null && t.approvalPercent !== undefined) {
+                    lines.push('In media il negozio conferma il ' + String(t.approvalPercent).replace('.', ',') + '% degli ordini. Gli altri vengono annullati: resi, ordini cancellati o non riconosciuti.');
+                }
+                if (t.autoApproveDays) lines.push('Se il negozio non conferma né annulla l\'ordine, Awin lo approva da solo dopo ' + t.autoApproveDays + ' giorni.');
+                if (t.payment && t.payment.text) lines.push(t.payment.text + (t.payment.checkedAt ? ' (dato Awin del ' + day(t.payment.checkedAt) + ')' : ''));
+                body.append(el('p', 'sub-h', 'Quando arriva'), bullets(lines));
 
-            // Regole
-            const r = s.rules || {};
-            const rules = section('Regole per non perdere il cashback');
-            const ruleLines = ['Apri il negozio da qui subito prima di comprare. Se clicchi il link di un altro sito di sconti o cashback, l\'acquisto va a loro.'];
-            if (r.cookieDays === 1) ruleLines.push('Completa l\'acquisto entro 24 ore dal clic.');
-            else if (r.cookieDays) ruleLines.push('Completa l\'acquisto entro ' + r.cookieDays + ' giorni dal clic.');
-            if (r.appTracking === false) ruleLines.push('Paga nel browser che si apre, non nell\'app del negozio: gli acquisti dall\'app non vengono registrati.');
-            else if (r.appTracking === true) ruleLines.push('Il negozio registra anche gli acquisti dalla sua app, se la apri dal nostro link.');
-            else ruleLines.push('Per sicurezza completa l\'acquisto nel browser che si apre.');
-            ruleLines.push('Accetta i cookie sul sito del negozio e non usare codici sconto trovati su altri siti.');
-            if (r.commissionBase) ruleLines.push('La percentuale si calcola sul ' + r.commissionBase + '.' + (r.vatIncluded === false ? ' Esempio: su un ordine da 122 € con IVA al 22% si calcola su 100 €.' : ''));
-            if (r.excludedProducts) ruleLines.push('Il negozio esclude alcuni prodotti dal cashback ma non pubblica l\'elenco: su quei prodotti il cashback è zero.');
-            if (s.productLinks === false) ruleLines.push('Il link apre la pagina principale del negozio.');
-            for (const n of r.notes || []) ruleLines.push(n);
-            rules.append(bullets(ruleLines));
-            body.append(rules);
+                const r = s.rules || {};
+                const ruleLines = ['Apri il negozio da qui subito prima di comprare. Se clicchi il link di un altro sito di sconti o cashback, l\'acquisto va a loro.'];
+                if (r.cookieDays === 1) ruleLines.push('Completa l\'acquisto entro 24 ore dal clic.');
+                else if (r.cookieDays) ruleLines.push('Completa l\'acquisto entro ' + r.cookieDays + ' giorni dal clic.');
+                if (r.appTracking === false) ruleLines.push('Paga nel browser che si apre, non nell\'app del negozio: gli acquisti dall\'app non vengono registrati.');
+                else if (r.appTracking === true) ruleLines.push('Il negozio registra anche gli acquisti dalla sua app, se la apri dal nostro link.');
+                else ruleLines.push('Per sicurezza completa l\'acquisto nel browser che si apre.');
+                ruleLines.push('Accetta i cookie sul sito del negozio e non usare codici sconto trovati su altri siti.');
+                if (r.commissionBase) ruleLines.push('La percentuale si calcola sul ' + r.commissionBase + '.' + (r.vatIncluded === false ? ' Esempio: su un ordine da 122 € con IVA al 22% si calcola su 100 €.' : ''));
+                if (r.excludedProducts) ruleLines.push('Il negozio esclude alcuni prodotti dal cashback ma non pubblica l\'elenco: su quei prodotti il cashback è zero.');
+                if (s.productLinks === false) ruleLines.push('Il link apre la pagina principale del negozio.');
+                for (const n of r.notes || []) ruleLines.push(n);
+                body.append(el('p', 'sub-h', 'Regole per non perdere il cashback'), bullets(ruleLines));
 
-            // Annullamenti
-            const declared = r.declineReasons && r.declineReasons.length;
-            const cancel = section(declared ? 'Il negozio può annullare il cashback se' : 'Il cashback può essere annullato se');
-            cancel.append(bullets(declared ? r.declineReasons : ['restituisci o annulli l\'ordine', 'l\'ordine non viene pagato o evaso', 'l\'ultimo clic prima dell\'acquisto è di un altro sito']));
-            cancel.append(el('p', 'text-xs text-slate-500 mt-2', declared ? 'Sono i motivi che il negozio indica nei suoi termini su Awin.' : 'Il negozio non ha pubblicato su Awin i motivi di annullamento: questi sono i più comuni.'));
-            body.append(cancel);
+                const declared = r.declineReasons && r.declineReasons.length;
+                body.append(el('p', 'sub-h', declared ? 'Il negozio può annullare il cashback se' : 'Il cashback può essere annullato se'),
+                    bullets(declared ? r.declineReasons : ['restituisci o annulli l\'ordine', 'l\'ordine non viene pagato o evaso', 'l\'ultimo clic prima dell\'acquisto è di un altro sito']),
+                    para(declared ? 'Sono i motivi che il negozio indica nei suoi termini su Awin.' : 'Il negozio non ha pubblicato su Awin i motivi di annullamento: questi sono i più comuni.', 'tiny'));
 
-            const src = 'Fonte: programma di affiliazione del negozio sul network Awin' + (s.updatedAt ? ', dati aggiornati al ' + day(s.updatedAt) : '') + '. Le medie descrivono il passato e non sono una garanzia.';
-            body.append(el('p', 'text-xs text-slate-400', src));
-
-            $('storeSheet').classList.remove('hidden');
+                body.append(para('Fonte: programma di affiliazione del negozio sul network Awin' + (s.updatedAt ? ', dati aggiornati al ' + day(s.updatedAt) : '') + '. Le medie descrivono il passato e non sono una garanzia.', 'tiny'));
+            }, [{ label: 'Vai al negozio', id: 'ssGo', onClick: (btn) => openStore(s.id, null, btn) }]);
         }
-
-        function renderMe(me) {
-            if (me.user.firstName) $('userName').textContent = me.user.firstName;
-            $('tgIdNote').textContent = 'Il tuo ID Telegram: ' + me.user.id;
-            $('tgIdNote').classList.remove('hidden');
-            state.balance = me.balance;
-            $('availableAmount').textContent = euro(me.balance.availableCents);
-            $('pendingAmount').textContent = euro(me.balance.pendingCents);
-            $('minNote').textContent = 'Puoi prelevare da ' + euro(me.balance.minPayoutCents) + ' in su. Il cashback diventa disponibile quando il negozio conferma l\'ordine e Awin ci paga la commissione: i tempi medi di ogni negozio sono nella sua scheda.';
-            state.program = me.program || null;
-            renderHow(state.program, (me.transactions || []).length === 0);
-            renderTagline(state.program);
-
-            const open = (me.withdrawals || []).find((w) => w.status === 'requested');
-            $('withdrawNote').classList.toggle('hidden', !open);
-            if (open) $('withdrawNote').textContent = 'Richiesta di prelievo di ' + euro(open.amount_cents) + ' in lavorazione.';
-
-            state.stores = me.stores || [];
-            renderStores();
-
-            const tx = $('txList');
-            tx.replaceChildren();
-            $('txEmpty').classList.toggle('hidden', (me.transactions || []).length > 0);
-            for (const t of me.transactions || []) {
-                const st = STATES[t.state] || STATES.pending;
-                const row = el('div', 'flex justify-between items-center py-2.5');
-                const left = el('div');
-                left.append(el('p', 'text-sm font-semibold text-slate-800', t.store), el('p', 'text-xs ' + st.cls, st.label + (t.date ? ' · acquisto del ' + day(t.date) : '')));
-                if (t.expectedAvailableAt) left.append(el('p', 'text-xs text-slate-400', 'Prelevabile indicativamente dal ' + day(t.expectedAvailableAt) + ' (media del negozio)'));
-                row.append(left, el('p', 'text-sm font-bold ' + (t.state === 'cancelled' ? 'text-slate-400 line-through' : 'text-slate-800'), euro(t.amountCents)));
-                tx.append(row);
-            }
-
-            if (me.user.refLink) {
-                $('inviteCard').classList.remove('hidden');
-                $('inviteLink').value = me.user.refLink;
-                $('inviteText').textContent = me.referralBonusCents > 0
-                    ? 'Ricevi ' + euro(me.referralBonusCents) + ' quando un amico invitato ottiene il suo primo cashback.'
-                    : 'Condividi il bot con chi fa acquisti online.';
-            }
-
-            if (me.isAdmin) loadAdmin();
-        }
-
-        async function loadAdmin() {
-            $('adminCard').classList.remove('hidden');
-            const list = $('adminList');
-            list.replaceChildren();
-            let data;
-            try { data = await api('/api/admin/withdrawals', {}); } catch (e) { toast(errorText(e), true); return; }
-            $('adminEmpty').classList.toggle('hidden', data.withdrawals.length > 0);
-            for (const w of data.withdrawals) {
-                const row = el('div', 'py-3');
-                const who = w.username ? '@' + w.username : (w.first_name || w.user_id);
-                row.append(
-                    el('p', 'text-sm font-semibold', euro(w.amount_cents) + ' · ' + who),
-                    el('p', 'text-xs text-slate-500 break-all', (w.method === 'paypal' ? 'PayPal' : 'Buono regalo') + ' a ' + w.destination + ' · ' + day(w.created_at)),
-                );
-                const actions = el('div', 'flex gap-2 mt-2');
-                const paid = el('button', 'flex-1 bg-green-600 text-white text-xs font-bold py-2 rounded-lg', 'Segna pagato');
-                const reject = el('button', 'flex-1 bg-slate-200 text-slate-700 text-xs font-bold py-2 rounded-lg', 'Rifiuta');
-                paid.addEventListener('click', () => updateWithdrawal(w, 'paid'));
-                reject.addEventListener('click', () => updateWithdrawal(w, 'rejected'));
-                actions.append(paid, reject);
-                row.append(actions);
-                list.append(row);
-            }
-        }
-
-        async function updateWithdrawal(w, status) {
-            const question = status === 'paid'
-                ? 'Hai già inviato ' + euro(w.amount_cents) + ' a ' + w.destination + '?'
-                : 'Rifiutare la richiesta? L\'importo torna nel saldo dell\'utente.';
-            if (!(await ask(question))) return;
-            try {
-                await api('/api/admin/withdrawals/update', { id: w.id, status });
-                toast(status === 'paid' ? 'Prelievo segnato come pagato.' : 'Richiesta rifiutata.');
-                load();
-            } catch (e) { toast(errorText(e), true); }
-        }
-
-        // ------------------------------------------------------------ azioni
 
         async function openStore(storeId, url, btn) {
             if (!initData) { toast('Apri la Mini App dal bot Telegram per ricevere il cashback.', true); return; }
             const original = btn.textContent;
             btn.disabled = true;
-            btn.textContent = '...';
+            btn.textContent = 'Apro...';
             try {
                 const res = await api('/api/link', { storeId, url: url || undefined });
                 haptic('success');
@@ -514,46 +965,301 @@
             const store = storeForUrl(raw);
             if (!store) {
                 err.textContent = /^https?:\/\//i.test(raw.trim())
-                    ? 'Questo negozio non è ancora nel nostro catalogo.'
+                    ? 'Questo negozio non è ancora nel catalogo. Puoi segnalarlo qui sopra.'
                     : 'Incolla un link che inizi con https://';
-                err.classList.remove('hidden');
+                err.hidden = false;
                 haptic('error');
                 return;
             }
-            err.classList.add('hidden');
+            err.hidden = true;
             openStore(store.id, raw.trim(), $('productBtn'));
         });
-
         $('storeSearch').addEventListener('input', renderStores);
 
-        $('ssClose').addEventListener('click', () => $('storeSheet').classList.add('hidden'));
-        $('storeSheet').addEventListener('click', (e) => { if (e.target === $('storeSheet')) $('storeSheet').classList.add('hidden'); });
-        $('ssGo').addEventListener('click', () => { if (state.currentStore) openStore(state.currentStore.id, null, $('ssGo')); });
-
-        $('withdrawBtn').addEventListener('click', () => {
-            if (!state.balance) { toast('Apri la Mini App dal bot Telegram.', true); return; }
-            if (state.balance.availableCents < state.balance.minPayoutCents) {
-                toast('Puoi prelevare da ' + euro(state.balance.minPayoutCents) + ' in su.', true);
-                return;
-            }
-            $('withdrawAmount').textContent = euro(state.balance.availableCents);
-            $('withdrawSheet').classList.remove('hidden');
-        });
-        $('withdrawCancel').addEventListener('click', () => $('withdrawSheet').classList.add('hidden'));
-        $('withdrawConfirm').addEventListener('click', async () => {
-            const btn = $('withdrawConfirm');
+        // ------------------------------------------------------------ segnalazioni
+        function openRequestSheet() {
+            if (!initData) { toast('Apri la Mini App dal bot Telegram per inviare una segnalazione.', true); return; }
+            const prefill = $('storeSearch').value.trim();
+            openSheet('Segnala un negozio', (b) => {
+                b.append(para('Dicci quale negozio vorresti trovare qui. Controlliamo se possiamo aggiungerlo: se non si può, ti proponiamo un\'alternativa. Ti rispondiamo sul bot.', 'muted'));
+                const name = el('input', 'field');
+                name.id = 'reqName'; name.maxLength = 80; name.placeholder = 'Es. Zalando'; name.value = prefill; name.dataset.autofocus = '1';
+                const site = el('input', 'field');
+                site.id = 'reqSite'; site.maxLength = 200; site.placeholder = 'Es. zalando.it (facoltativo)'; site.inputMode = 'url';
+                const note = el('textarea', 'field');
+                note.id = 'reqNote'; note.maxLength = 300; note.placeholder = 'Cosa compri di solito lì? (facoltativo)';
+                const l1 = el('label', 'lbl', 'Nome del negozio'); l1.htmlFor = 'reqName';
+                const l2 = el('label', 'lbl', 'Sito del negozio'); l2.htmlFor = 'reqSite';
+                const l3 = el('label', 'lbl', 'Nota'); l3.htmlFor = 'reqNote';
+                const wrap = el('div');
+                wrap.append(l1, name, l2, site, l3, note);
+                const errP = el('p', 'error-text'); errP.id = 'reqError'; errP.hidden = true;
+                wrap.append(errP);
+                b.append(wrap);
+            }, [
+                { label: 'Annulla', cls: 'btn-soft', close: true },
+                { label: 'Invia segnalazione', id: 'reqSend', onClick: sendRequest },
+            ]);
+        }
+        async function sendRequest(btn) {
+            const errP = $('reqError');
             btn.disabled = true;
             try {
-                const res = await api('/api/withdraw', { method: $('withdrawMethod').value, destination: $('withdrawEmail').value.trim() });
-                $('withdrawSheet').classList.add('hidden');
-                toast('Richiesta di ' + euro(res.amountCents) + ' inviata.');
+                const res = await api('/api/store-request', { storeName: $('reqName').value, website: $('reqSite').value, note: $('reqNote').value });
+                closeSheet();
+                toast(res.comingSoon
+                    ? res.comingSoon + ' è già in arrivo: aspettiamo l\'approvazione del negozio. Ti avvisiamo noi.'
+                    : 'Segnalazione inviata. Ti rispondiamo sul bot.');
                 load();
             } catch (e) {
-                toast(errorText(e), true);
+                errP.textContent = e.code === 'rate_limited' ? 'Hai già inviato 5 segnalazioni oggi: riprova domani.' : errorText(e);
+                errP.hidden = false;
+                haptic('error');
             } finally {
                 btn.disabled = false;
             }
+        }
+        $('requestBtn').addEventListener('click', openRequestSheet);
+
+        function renderMyRequests(list) {
+            const box = $('myRequests');
+            box.replaceChildren();
+            box.hidden = !list.length;
+            if (!list.length) return;
+            box.append(el('p', 'sub-h', 'Le tue segnalazioni'));
+            const extra = [];
+            list.forEach((r, i) => {
+                const st = REQUEST_STATUS[r.status] || REQUEST_STATUS.new;
+                const row = el('div', 'tx');
+                const top = el('div', 'tx-top');
+                top.append(el('p', 'tx-store', r.storeName), el('span', 'pill ' + st.cls, st.label));
+                row.append(top, el('p', 'tiny', 'Inviata il ' + day(r.createdAt)));
+                if (r.reply) row.append(para(r.reply, 'small muted'));
+                if (i >= 3) { row.hidden = true; extra.push(row); }
+                box.append(row);
+            });
+            if (extra.length) {
+                const more = el('button', 'link-btn', 'Mostra tutte (' + list.length + ')');
+                more.style.marginTop = '8px';
+                more.addEventListener('click', () => { extra.forEach((r) => { r.hidden = false; }); more.remove(); });
+                box.append(more);
+            }
+        }
+
+        // ------------------------------------------------------------ saldo e acquisti
+        const PHASES = ['In attesa', 'Approvato', 'Disponibile'];
+        function phaseNode(stateName) {
+            const idx = { pending: 0, approved: 1, available: 2 }[stateName];
+            const wrap = el('div');
+            const bar = el('div', 'phases');
+            for (let i = 0; i < 3; i++) {
+                if (i) bar.append(el('div', 'phase-line' + (i <= idx ? ' done' : '')));
+                bar.append(el('div', 'phase-dot' + (i <= idx ? ' done' : '')));
+            }
+            const labels = el('div', 'phase-labels');
+            PHASES.forEach((p, i) => labels.append(el('span', i === idx ? 'on' : '', p)));
+            wrap.append(bar, labels);
+            return wrap;
+        }
+
+        function renderMe(me) {
+            state.me = me;
+            state.balance = me.balance;
+            state.program = me.program || null;
+            state.stores = me.stores || [];
+            if (me.user.firstName) $('hello').textContent = 'Ciao, ' + me.user.firstName;
+            $('heroUser').hidden = false;
+            $('heroGuest').hidden = true;
+            $('walletUser').hidden = false;
+            $('walletGuest').hidden = true;
+            $('heroAmount').textContent = euro(me.balance.availableCents);
+            $('heroPending').textContent = euro(me.balance.pendingCents);
+            $('availableAmount').textContent = euro(me.balance.availableCents);
+            $('pendingAmount').textContent = euro(me.balance.pendingCents);
+            $('minNote').textContent = 'Puoi prelevare da ' + euro(me.balance.minPayoutCents) + ' in su. Un acquisto diventa prelevabile quando il negozio lo conferma e Awin ci paga la commissione.';
+            $('tgIdNote').textContent = 'Il tuo ID Telegram: ' + me.user.id;
+            renderSplit();
+
+            const open = (me.withdrawals || []).find((w) => w.status === 'requested');
+            $('withdrawNote').hidden = !open;
+            if (open) $('withdrawNote').textContent = 'Richiesta di prelievo di ' + euro(open.amount_cents) + ' in lavorazione: ti avvisiamo sul bot quando la paghiamo.';
+
+            renderChips();
+            renderStores();
+            renderMyRequests(me.storeRequests || []);
+
+            const tx = $('txList');
+            tx.replaceChildren();
+            $('txEmpty').hidden = (me.transactions || []).length > 0;
+            for (const t of me.transactions || []) {
+                const row = el('div', 'tx');
+                const top = el('div', 'tx-top');
+                top.append(el('p', 'tx-store', t.store), el('p', 'tx-amount' + (t.state === 'cancelled' ? ' cancel' : ''), euro(t.amountCents)));
+                row.append(top);
+                if (t.date) row.append(el('p', 'tiny', 'Acquisto del ' + day(t.date)));
+                if (t.state === 'cancelled') row.append(el('span', 'pill danger', 'Annullato'));
+                else row.append(phaseNode(t.state));
+                if (t.expectedAvailableAt) row.append(el('p', 'tiny', 'Prelevabile indicativamente dal ' + day(t.expectedAvailableAt) + ' (media del negozio)'));
+                tx.append(row);
+            }
+
+            const wds = me.withdrawals || [];
+            $('wdSection').hidden = !wds.length;
+            const wl = $('wdList');
+            wl.replaceChildren();
+            for (const w of wds) {
+                const row = el('div', 'tx');
+                const top = el('div', 'tx-top');
+                const label = { requested: ['In lavorazione', 'warn'], paid: ['Pagato', 'pos'], rejected: ['Non riuscito', 'danger'] }[w.status] || [w.status, ''];
+                top.append(el('p', 'tx-store', euro(w.amount_cents)), el('span', 'pill ' + label[1], label[0]));
+                row.append(top, el('p', 'tiny', (w.method === 'paypal' ? 'PayPal' : 'Buono regalo') + ', richiesto il ' + day(w.created_at)));
+                wl.append(row);
+            }
+
+            if (me.user.refLink) {
+                $('inviteCard').hidden = false;
+                $('inviteLink').value = me.user.refLink;
+                $('inviteText').textContent = me.referralBonusCents > 0
+                    ? 'Ricevi ' + euro(me.referralBonusCents) + ' quando un amico invitato ottiene il suo primo cashback. Lo paghiamo noi.'
+                    : 'Condividi il bot con chi fa acquisti online.';
+            }
+
+            if (me.isAdmin) {
+                $('t-admin').hidden = false;
+                loadAdmin();
+            }
+        }
+
+        function openWithdraw() {
+            if (!state.balance) { toast('Apri la Mini App dal bot Telegram.', true); return; }
+            if (state.balance.availableCents < state.balance.minPayoutCents) {
+                toast('Puoi prelevare da ' + euro(state.balance.minPayoutCents) + ' in su. Ora hai ' + euro(state.balance.availableCents) + '.', true);
+                return;
+            }
+            openSheet('Preleva il saldo', (b) => {
+                b.append(para('Importo: ' + euro(state.balance.availableCents), 'display'));
+                const l1 = el('label', 'lbl', 'Come vuoi riceverlo'); l1.htmlFor = 'withdrawMethod';
+                const sel = el('select', 'field'); sel.id = 'withdrawMethod';
+                for (const [v, t] of [['buono_regalo', 'Buono regalo digitale (via email)'], ['paypal', 'PayPal']]) { const o = el('option', '', t); o.value = v; sel.append(o); }
+                const l2 = el('label', 'lbl', 'Email'); l2.htmlFor = 'withdrawEmail';
+                const mail = el('input', 'field'); mail.id = 'withdrawEmail'; mail.type = 'email'; mail.placeholder = 'nome@esempio.it'; mail.autocomplete = 'email';
+                const wrap = el('div');
+                wrap.append(l1, sel, l2, mail);
+                b.append(wrap, para('Paghiamo le richieste a mano, di solito entro ' + prog().payoutWorkingDays + ' giorni lavorativi.', 'tiny'));
+            }, [
+                { label: 'Annulla', cls: 'btn-soft', close: true },
+                { label: 'Conferma prelievo', id: 'withdrawConfirm', onClick: async (btn) => {
+                    btn.disabled = true;
+                    try {
+                        const res = await api('/api/withdraw', { method: $('withdrawMethod').value, destination: $('withdrawEmail').value.trim() });
+                        closeSheet();
+                        toast('Richiesta di ' + euro(res.amountCents) + ' inviata.');
+                        load();
+                    } catch (e) { toast(errorText(e), true); } finally { btn.disabled = false; }
+                } },
+            ]);
+        }
+        $('withdrawBtn').addEventListener('click', openWithdraw);
+        $('heroWithdraw').addEventListener('click', openWithdraw);
+
+        $('shareBtn').addEventListener('click', () => {
+            const link = $('inviteLink').value;
+            const text = 'Uso questo bot per riavere una parte di quello che spendo online, allo stesso prezzo. Provalo:';
+            const shareUrl = 'https://t.me/share/url?url=' + encodeURIComponent(link) + '&text=' + encodeURIComponent(text);
+            if (tg && tg.openTelegramLink) tg.openTelegramLink(shareUrl);
+            else window.open(shareUrl, '_blank', 'noopener');
         });
+
+        // ------------------------------------------------------------ admin
+        async function loadAdmin() {
+            const list = $('adminList');
+            const rl = $('reqAdminList');
+            let data, reqs;
+            try {
+                [data, reqs] = await Promise.all([api('/api/admin/withdrawals', {}), api('/api/admin/store-requests', {})]);
+            } catch (e) { toast(errorText(e), true); return; }
+            list.replaceChildren();
+            $('adminEmpty').hidden = data.withdrawals.length > 0;
+            for (const w of data.withdrawals) {
+                const row = el('div', 'admin-group');
+                const who = w.username ? '@' + w.username : (w.first_name || w.user_id);
+                row.append(el('p', 'tx-store', euro(w.amount_cents) + ', ' + who),
+                    el('p', 'tiny', (w.method === 'paypal' ? 'PayPal' : 'Buono regalo') + ' a ' + w.destination + ', ' + day(w.created_at)));
+                const actions = el('div', 'admin-actions');
+                const paid = el('button', 'btn btn-primary btn-small', 'Segna pagato');
+                const reject = el('button', 'btn btn-soft btn-small', 'Rifiuta');
+                paid.addEventListener('click', () => updateWithdrawal(w, 'paid'));
+                reject.addEventListener('click', () => updateWithdrawal(w, 'rejected'));
+                actions.append(paid, reject);
+                row.append(actions);
+                list.append(row);
+            }
+
+            rl.replaceChildren();
+            $('reqAdminEmpty').hidden = reqs.requests.length > 0;
+            for (const g of reqs.requests) {
+                const row = el('div', 'admin-group');
+                const top = el('div', 'tx-top');
+                top.append(el('p', 'tx-store', g.storeName), el('span', 'pill ' + (g.status === 'working' ? 'warn' : ''), g.users === 1 ? '1 utente' : g.users + ' utenti'));
+                row.append(top);
+                if (g.websites.length) row.append(el('p', 'tiny', 'Sito: ' + g.websites.join(', ')));
+                for (const n of g.notes.slice(0, 3)) row.append(el('p', 'small muted', n));
+                if (g.awinMatches.length) {
+                    for (const m of g.awinMatches) {
+                        const a = el('button', 'link-btn', 'Su Awin: ' + m.name);
+                        a.style.display = 'block'; a.style.marginTop = '4px';
+                        a.addEventListener('click', () => openExternal(m.url));
+                        row.append(a);
+                    }
+                } else row.append(el('p', 'tiny', g.status === 'working' ? 'Già chiesto ad Awin: si chiude da sola quando il negozio approva.' : 'Non trovato tra i programmi Awin italiani.'));
+                const actions = el('div', 'admin-actions');
+                for (const [status, label] of [['working', 'Ci lavoro'], ['added', 'Aggiunto'], ['alternative', 'Alternativa'], ['not_possible', 'Non possibile']]) {
+                    const b = el('button', 'btn btn-small ' + (status === 'added' ? 'btn-primary' : 'btn-soft'), label);
+                    b.addEventListener('click', () => replyRequest(g, status));
+                    actions.append(b);
+                }
+                row.append(actions);
+                rl.append(row);
+            }
+        }
+
+        const REPLY_HINT = {
+            working: 'Facoltativo. Es.: Abbiamo chiesto l\'iscrizione al loro programma.',
+            added: 'Facoltativo. Es.: Lo trovi nella sezione Negozi.',
+            alternative: 'Obbligatorio. Es.: Per le scarpe trovi adidas nella Mini App.',
+            not_possible: 'Facoltativo. Es.: Il negozio non ha un programma di affiliazione in Italia.',
+        };
+        const REPLY_TITLE = { working: 'Ci stiamo lavorando', added: 'Negozio aggiunto', alternative: 'Proponi un\'alternativa', not_possible: 'Non possibile' };
+        function replyRequest(g, status) {
+            openSheet(REPLY_TITLE[status] + ': ' + g.storeName, (b) => {
+                b.append(para('Il messaggio arriva sul bot a ' + (g.users === 1 ? 'chi l\'ha chiesto' : 'tutti i ' + g.users + ' utenti che l\'hanno chiesto') + '.', 'muted'));
+                const t = el('textarea', 'field'); t.id = 'replyText'; t.maxLength = 500; t.placeholder = REPLY_HINT[status]; t.dataset.autofocus = '1';
+                b.append(t);
+            }, [
+                { label: 'Annulla', cls: 'btn-soft', close: true },
+                { label: 'Invia risposta', id: 'replySend', onClick: async (btn) => {
+                    btn.disabled = true;
+                    try {
+                        const r = await api('/api/admin/store-requests/update', { key: g.key, status, reply: $('replyText').value });
+                        closeSheet();
+                        toast('Risposta inviata a ' + r.notified + (r.notified === 1 ? ' utente.' : ' utenti.'));
+                        loadAdmin();
+                    } catch (e) { toast(errorText(e), true); } finally { btn.disabled = false; }
+                } },
+            ]);
+        }
+
+        async function updateWithdrawal(w, status) {
+            const question = status === 'paid'
+                ? 'Hai già inviato ' + euro(w.amount_cents) + ' a ' + w.destination + '?'
+                : 'Rifiutare la richiesta? L\'importo torna nel saldo dell\'utente.';
+            if (!(await ask(question))) return;
+            try {
+                await api('/api/admin/withdrawals/update', { id: w.id, status });
+                toast(status === 'paid' ? 'Prelievo segnato come pagato.' : 'Richiesta rifiutata.');
+                load();
+            } catch (e) { toast(errorText(e), true); }
+        }
 
         $('setupBtn').addEventListener('click', async () => {
             const btn = $('setupBtn');
@@ -563,18 +1269,22 @@
                 const r = await api('/api/admin/setup', {});
                 const out = $('setupResult');
                 out.replaceChildren();
-                const line = (ok, text) => out.append(el('p', ok ? 'text-green-700' : 'text-red-600', (ok ? '✓ ' : '✗ ') + text));
+                const line = (ok, text) => out.append(el('p', ok ? 'ok-line' : 'ko-line', (ok ? '✓ ' : '✗ ') + text));
                 line(r.telegram.webhook.ok, 'Bot collegato al server' + (r.telegram.webhook.ok ? '' : ': ' + (r.telegram.webhook.description || 'errore')));
-                line(r.telegram.menuButton.ok, 'Pulsante menu del bot apre la Mini App' + (r.telegram.menuButton.ok ? '' : ': ' + (r.telegram.menuButton.description || 'errore')));
+                line(r.telegram.menuButton.ok, 'Il pulsante menu del bot apre la Mini App' + (r.telegram.menuButton.ok ? '' : ': ' + (r.telegram.menuButton.description || 'errore')));
                 line(r.checks.awinApiToken, r.checks.awinApiToken ? 'Token API Awin impostato' : 'Manca il token API Awin');
                 line(!!r.checks.botUsername, r.checks.botUsername ? 'Link di invito attivi (@' + r.checks.botUsername + ')' : 'Manca BOT_USERNAME: link di invito spenti');
+                const em = r.checks.email || { skipped: true };
+                if (em.ok) line(true, 'Email di prova inviata: controlla la posta');
+                else if (em.skipped) line(false, 'Email non configurata: le segnalazioni arrivano solo su Telegram');
+                else line(false, 'Email non inviata: ' + (em.error || 'errore'));
                 line(r.checks.activeStores > 0, 'Negozi attivi: ' + r.checks.activeStores);
                 if (r.lastSync) line(!r.lastSync.error, 'Ultima lettura da Awin: ' + day(r.lastSync.at) + (r.lastSync.error ? ' (errore: ' + r.lastSync.error + ')' : ''));
                 else line(false, 'Nessuna lettura da Awin ancora (parte ogni ora)');
-                out.classList.remove('hidden');
+                out.hidden = false;
                 if (r.awinNotifyUrl) {
                     $('notifyUrl').value = r.awinNotifyUrl;
-                    $('notifyBox').classList.remove('hidden');
+                    $('notifyBox').hidden = false;
                 }
             } catch (e) {
                 toast(errorText(e), true);
@@ -588,32 +1298,28 @@
             catch (e) { $('notifyUrl').select(); toast('Seleziona e copia il testo a mano.', true); }
         });
 
-        $('shareBtn').addEventListener('click', () => {
-            const link = $('inviteLink').value;
-            const text = 'Uso questo bot per avere cashback sugli acquisti online. Provalo:';
-            const shareUrl = 'https://t.me/share/url?url=' + encodeURIComponent(link) + '&text=' + encodeURIComponent(text);
-            if (tg && tg.openTelegramLink) tg.openTelegramLink(shareUrl);
-            else window.open(shareUrl, '_blank', 'noopener');
-        });
-
+        // ------------------------------------------------------------ avvio
         async function load() {
+            renderInfoButtons();
             if (!initData) {
-                $('notInTelegram').classList.remove('hidden');
-                $('balanceCard').classList.add('hidden');
+                $('guestNote').hidden = false;
+                $('walletGuest').hidden = false;
+                $('botLink').href = 'https://t.me/' + BOT_USERNAME;
                 try {
                     const pub = await api('/api/stores');
                     state.stores = pub.stores;
                     state.program = pub.program || null;
-                    renderStores();
-                    renderHow(state.program, true);
-                    renderTagline(state.program);
-                } catch (e) { /* server non raggiungibile */ }
+                } catch (e) { /* server non raggiungibile: restano i valori predefiniti */ }
+                renderSplit();
+                renderChips();
+                renderStores();
                 return;
             }
             try {
                 renderMe(await api('/api/me', {}));
             } catch (e) {
                 toast(errorText(e), true);
+                renderStores();
             }
         }
 

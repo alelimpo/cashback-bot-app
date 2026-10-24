@@ -19,6 +19,12 @@ const STORE_REFRESH_PER_RUN = 4; // 2 chiamate per negozio: totale per esecuzion
 const STORE_REFRESH_HOURS = 24;
 const WITHDRAW_METHODS = ['paypal', 'buono_regalo'];
 const PAYOUT_WORKING_DAYS = 7;
+// Segnalazioni di negozi da aggiungere.
+const MAX_STORE_REQUESTS_PER_DAY = 5;
+const MAX_EMAILS_PER_DAY = 50; // il piano gratuito di Resend arriva a 100 email al giorno
+const DIRECTORY_CACHE_HOURS = 24;
+const OPEN_REQUEST_STATUSES = ['new', 'working'];
+const REQUEST_REPLY_STATUSES = ['working', 'added', 'alternative', 'not_possible'];
 
 // Motivi di rifiuto letti dai termini Awin di ogni negozio, in italiano.
 const DECLINE_REASONS_IT = {
@@ -89,6 +95,9 @@ export default {
         case 'POST /api/admin/withdrawals': res = await handleAdminList(request, env); break;
         case 'POST /api/admin/withdrawals/update': res = await handleAdminUpdate(request, env, ctx); break;
         case 'POST /api/admin/setup': res = await handleAdminSetup(request, env); break;
+        case 'POST /api/store-request': res = await handleStoreRequest(request, env, ctx); break;
+        case 'POST /api/admin/store-requests': res = await handleAdminStoreRequests(request, env); break;
+        case 'POST /api/admin/store-requests/update': res = await handleAdminStoreRequestUpdate(request, env, ctx); break;
         default: res = json({ error: 'not_found' }, 404);
       }
       return withHeaders(res, cors);
@@ -434,6 +443,7 @@ export function buildStoreView(s, env) {
     cashbackLabel: headline,
     note: s.rate_note,
     productLinks: deeplink,
+    logo: (info && info.logoUrl) || (s.awin_mid ? `https://ui.awin.com/images/upload/merchant/profile/${s.awin_mid}.png` : null),
     rates: rates.map(({ label, type, storePays, youGet }) => ({ label, type, storePays, youGet })),
     timing: {
       validationDays: toNumber(kpi.validationDays),
@@ -456,7 +466,7 @@ export function buildStoreView(s, env) {
   };
 }
 
-const STORE_COLUMNS = 'id, name, domains, category, rate_type, rate_max, rate_note, user_fixed_cents, details, awin_info, awin_info_at';
+const STORE_COLUMNS = 'id, name, awin_mid, domains, category, rate_type, rate_max, rate_note, user_fixed_cents, details, awin_info, awin_info_at';
 
 async function listStores(env) {
   const { results } = await env.DB.prepare(
@@ -478,7 +488,7 @@ function programInfo(env) {
 
 async function handleMe(request, env) {
   const { user } = await authenticate(request, env);
-  const [balance, stores, txs, wds] = await Promise.all([
+  const [balance, stores, txs, wds, reqs] = await Promise.all([
     getBalance(env, user.id),
     listStores(env),
     env.DB.prepare(
@@ -489,6 +499,9 @@ async function handleMe(request, env) {
     ).bind(user.id).all(),
     env.DB.prepare(
       'SELECT id, amount_cents, method, status, created_at, processed_at FROM withdrawals WHERE user_id = ? ORDER BY id DESC LIMIT 10'
+    ).bind(user.id).all(),
+    env.DB.prepare(
+      'SELECT id, store_name, website, status, reply, created_at, handled_at FROM store_requests WHERE user_id = ? ORDER BY id DESC LIMIT 10'
     ).bind(user.id).all(),
   ]);
 
@@ -513,6 +526,15 @@ async function handleMe(request, env) {
       };
     }),
     withdrawals: wds.results,
+    storeRequests: reqs.results.map((r) => ({
+      id: r.id,
+      storeName: r.store_name,
+      website: r.website,
+      status: r.status,
+      reply: r.reply,
+      createdAt: r.created_at,
+      handledAt: r.handled_at,
+    })),
   });
 }
 
@@ -591,6 +613,273 @@ async function handleWithdraw(request, env, ctx) {
   return json({ ok: true, amountCents: balance.availableCents });
 }
 
+// ------------------------------------------------ segnalazioni di nuovi negozi
+
+// Chiave per riconoscere lo stesso negozio scritto in modi diversi:
+// "Zalando", "zalando.it", "www.Zalando.it" -> "zalando".
+export function storeKey(text) {
+  let s = String(text || '').trim().toLowerCase();
+  s = s.normalize('NFD').replace(/[̀-ͯ]/g, '');
+  const host = hostFromInput(s);
+  if (host) s = domainBase(host);
+  return s.replace(/[^a-z0-9]/g, '');
+}
+
+function hostFromInput(text) {
+  let s = String(text || '').trim().toLowerCase();
+  if (!s) return null;
+  if (!/^https?:\/\//.test(s)) {
+    if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+(\/.*)?$/.test(s)) return null;
+    s = `https://${s}`;
+  }
+  try {
+    const host = new URL(s).hostname.replace(/^www\./, '');
+    return /^[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,}$/.test(host) ? host : null;
+  } catch {
+    return null;
+  }
+}
+
+function domainBase(host) {
+  const parts = String(host).replace(/^\*\./, '').replace(/^www\./, '').split('.').filter(Boolean);
+  return parts.length >= 2 ? parts[parts.length - 2] : parts[0] || '';
+}
+
+// Il negozio segnalato e' gia' nel nostro catalogo (attivo o in attesa di Awin)?
+function findKnownStore(stores, key, host) {
+  return stores.find((s) => {
+    const domains = String(s.domains || '').split(',').map((d) => d.trim().toLowerCase()).filter(Boolean);
+    if (host && hostMatches(host, domains)) return true;
+    if (!key) return false;
+    const nameKey = storeKey(s.name);
+    const firstWord = storeKey(String(s.name).split(/\s+/)[0]);
+    return key === s.id || key === nameKey || key === firstWord || domains.some((d) => domainBase(d) === key);
+  }) || null;
+}
+
+// Elenco dei programmi Awin italiani a cui non sei iscritto, salvato per un giorno:
+// serve a dirti subito se il negozio segnalato si puo' aggiungere tramite Awin.
+async function awinDirectory(env) {
+  if (!env.AWIN_API_TOKEN || !env.AWIN_PUBLISHER_ID) return null;
+  const cached = await readSetting(env, 'awin_directory_it');
+  if (cached && cached.at && Date.now() - Date.parse(cached.at) < DIRECTORY_CACHE_HOURS * 3600 * 1000) return cached.items;
+  const list = await awinGet(env, `/publishers/${env.AWIN_PUBLISHER_ID}/programmes`, { relationship: 'notjoined', countryCode: 'IT' });
+  const items = list.map((p) => {
+    const domains = (Array.isArray(p.validDomains) ? p.validDomains : []).map((d) => String(d.domain || '').toLowerCase()).filter(Boolean);
+    const display = hostFromInput(p.displayUrl || '');
+    const base = String(p.name || '').replace(/[\s_-]+(it|ita|italia|italy)$/i, '');
+    const keys = new Set([storeKey(base), ...domains.map(domainBase), display ? domainBase(display) : ''].filter(Boolean));
+    return { id: p.id, name: p.name, sector: p.primarySector || null, keys: [...keys] };
+  });
+  await saveSetting(env, 'awin_directory_it', { at: new Date().toISOString(), items });
+  return items;
+}
+
+export function findAwinMatches(items, key, host) {
+  if (!items || !key) return [];
+  const hostKey = host ? domainBase(host) : null;
+  const exact = items.filter((p) => p.keys.includes(key) || (hostKey && p.keys.includes(hostKey)));
+  const loose = key.length >= 4 ? items.filter((p) => !exact.includes(p) && p.keys.some((k) => k.startsWith(key))) : [];
+  return [...exact, ...loose].slice(0, 3).map(({ id, name, sector }) => ({ id, name, sector }));
+}
+
+function awinProfileUrl(env, id) {
+  return `https://ui.awin.com/awin/affiliate/${env.AWIN_PUBLISHER_ID}/merchant-profile/${id}`;
+}
+
+async function handleStoreRequest(request, env, ctx) {
+  const { body, user } = await authenticate(request, env);
+  const storeName = String(body.storeName || '').replace(/\s+/g, ' ').trim().slice(0, 80);
+  const note = String(body.note || '').replace(/\s+/g, ' ').trim().slice(0, 300) || null;
+  const websiteRaw = String(body.website || '').trim();
+  if (storeName.length < 2) throw new HttpError(400, 'invalid_store_name');
+  const host = hostFromInput(websiteRaw) || hostFromInput(storeName);
+  if (websiteRaw && !hostFromInput(websiteRaw)) throw new HttpError(400, 'invalid_website');
+  const key = storeKey(storeName);
+  if (!key) throw new HttpError(400, 'invalid_store_name');
+
+  const { results: stores } = await env.DB.prepare('SELECT id, name, domains, active FROM stores').all();
+  const known = findKnownStore(stores, key, host);
+  if (known && known.active) throw new HttpError(409, 'store_available');
+
+  const recent = await env.DB.prepare(
+    "SELECT COUNT(*) AS n FROM store_requests WHERE user_id = ? AND created_at > datetime('now', '-1 day')"
+  ).bind(user.id).first();
+  if (recent.n >= MAX_STORE_REQUESTS_PER_DAY) throw new HttpError(429, 'rate_limited');
+  const dup = await env.DB.prepare(
+    `SELECT id FROM store_requests WHERE user_id = ? AND store_key = ? AND status IN ('new', 'working')`
+  ).bind(user.id, key).first();
+  if (dup) throw new HttpError(409, 'already_requested');
+
+  // Se il negozio e' tra quelli gia' chiesti ad Awin, la segnalazione e' "in lavorazione"
+  // e si chiude da sola quando Awin approva (vedi syncPrograms).
+  const status = known ? 'working' : 'new';
+  const ins = await env.DB.prepare(
+    'INSERT INTO store_requests (user_id, store_name, store_key, website, note, store_id, status) VALUES (?, ?, ?, ?, ?, ?, ?)'
+  ).bind(user.id, storeName, key, host, note, known ? known.id : null, status).run();
+  const id = ins.meta ? ins.meta.last_row_id : null;
+
+  ctx.waitUntil(notifyStoreRequest(env, { id, user, storeName, key, host, note, known }));
+  return json({ ok: true, id, status, comingSoon: known ? known.name : null });
+}
+
+async function notifyStoreRequest(env, { id, user, storeName, key, host, note, known }) {
+  let matches = [];
+  let directoryError = null;
+  if (!known) {
+    try {
+      matches = findAwinMatches(await awinDirectory(env), key, host);
+    } catch (err) {
+      directoryError = String(err && err.message ? err.message : err);
+    }
+    if (matches.length && id) {
+      await env.DB.prepare('UPDATE store_requests SET awin_matches = ? WHERE id = ?').bind(JSON.stringify(matches), id).run();
+    }
+  }
+  const count = (await env.DB.prepare(
+    "SELECT COUNT(DISTINCT user_id) AS n FROM store_requests WHERE store_key = ? AND status IN ('new', 'working')"
+  ).bind(key).first()).n;
+
+  const who = user.username ? `@${user.username}` : user.first_name || 'utente';
+  const lines = [
+    `Nuova segnalazione negozio: ${storeName}`,
+    host ? `Sito: ${host}` : null,
+    note ? `Nota: ${note}` : null,
+    `Da: ${who} (ID ${user.id})`,
+    `Utenti che lo chiedono: ${count}`,
+    '',
+  ];
+  if (known) {
+    lines.push(`È già nel catalogo (${known.name}) in attesa dell'approvazione Awin: l'utente verrà avvisato da solo quando si attiva.`);
+  } else if (matches.length) {
+    lines.push('Su Awin (Italia) c\'è:');
+    for (const m of matches) lines.push(`- ${m.name}${m.sector ? ` (${m.sector})` : ''}: ${awinProfileUrl(env, m.id)}`);
+    lines.push('Se ti iscrivi al programma e lo aggiungi al catalogo, rispondi dalla Mini App (Admin > Segnalazioni).');
+  } else {
+    lines.push(directoryError
+      ? `Controllo su Awin non riuscito (${directoryError}).`
+      : 'Non trovato tra i programmi Awin italiani a cui puoi iscriverti: prova su altri network (es. Tradedoubler, TradeTracker, CJ, Admitad) o proponi un\'alternativa.');
+  }
+  const text = lines.filter((l) => l !== null).join('\n');
+  await notifyAdmins(env, text);
+
+  const sentToday = await env.DB.prepare(
+    "SELECT COUNT(*) AS n FROM store_requests WHERE created_at > datetime('now', '-1 day')"
+  ).first();
+  if (sentToday.n <= MAX_EMAILS_PER_DAY) {
+    const res = await sendEmail(env, `Segnalazione negozio: ${storeName}`, text);
+    if (!res.ok && !res.skipped) console.log('Email segnalazione non inviata', res.error);
+  }
+}
+
+// Email con Resend (piano gratuito: 3000 al mese, 100 al giorno). Senza un dominio
+// verificato si puo' scrivere solo all'indirizzo dell'account Resend: va benissimo per
+// ricevere le segnalazioni. Segreti: RESEND_API_KEY e NOTIFY_EMAIL.
+async function sendEmail(env, subject, text) {
+  const to = String(env.NOTIFY_EMAIL || '').split(',').map((s) => s.trim()).filter(Boolean);
+  if (!env.RESEND_API_KEY || !to.length) return { ok: false, skipped: true };
+  const base = env.RESEND_API_BASE || 'https://api.resend.com';
+  try {
+    const res = await fetch(`${base}/emails`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ from: env.EMAIL_FROM || 'Cashback Bot <onboarding@resend.dev>', to, subject, text }),
+    });
+    const data = await res.json().catch(() => ({}));
+    return res.ok ? { ok: true, id: data.id || null } : { ok: false, error: data.message || `HTTP ${res.status}` };
+  } catch (err) {
+    return { ok: false, error: String(err) };
+  }
+}
+
+const REQUEST_MESSAGES = {
+  working: (name, reply) => `Stiamo lavorando alla tua segnalazione di ${name}: abbiamo chiesto di poterlo aggiungere. Ti scriviamo appena è disponibile.${reply ? `\n\n${reply}` : ''}`,
+  added: (name, reply) => `Buone notizie: ${name} è ora nella Mini App, con il suo cashback. Grazie per la segnalazione!${reply ? `\n\n${reply}` : ''}`,
+  alternative: (name, reply) => `Per ${name} non abbiamo ancora un accordo. Ti proponiamo un'alternativa:\n\n${reply}`,
+  not_possible: (name, reply) => `Per ora non riusciamo ad aggiungere ${name}.${reply ? `\n\n${reply}` : ''} Grazie comunque per la segnalazione.`,
+};
+
+async function handleAdminStoreRequests(request, env) {
+  await requireAdmin(request, env);
+  const { results } = await env.DB.prepare(
+    `SELECT r.*, u.first_name, u.username FROM store_requests r LEFT JOIN users u ON u.id = r.user_id
+      WHERE r.status IN ('new', 'working') ORDER BY r.id`
+  ).all();
+  const groups = new Map();
+  for (const r of results) {
+    let g = groups.get(r.store_key);
+    if (!g) {
+      g = { key: r.store_key, storeName: r.store_name, status: r.status, users: 0, websites: [], notes: [], awinMatches: [], firstAt: r.created_at, lastAt: r.created_at, ids: [] };
+      groups.set(r.store_key, g);
+    }
+    g.ids.push(r.id);
+    g.users += 1;
+    g.lastAt = r.created_at;
+    if (r.status === 'working') g.status = 'working';
+    if (r.website && !g.websites.includes(r.website)) g.websites.push(r.website);
+    if (r.note) g.notes.push(`${r.first_name || r.username || r.user_id}: ${r.note}`);
+    for (const m of parseJson(r.awin_matches, [])) {
+      if (!g.awinMatches.some((x) => x.id === m.id)) g.awinMatches.push({ ...m, url: awinProfileUrl(env, m.id) });
+    }
+  }
+  const list = [...groups.values()].sort((a, b) => b.users - a.users || (a.firstAt < b.firstAt ? -1 : 1));
+  return json({ requests: list });
+}
+
+// Risposta a tutte le segnalazioni aperte dello stesso negozio: ogni utente riceve un messaggio dal bot.
+async function handleAdminStoreRequestUpdate(request, env, ctx) {
+  const { body } = await requireAdmin(request, env);
+  const key = String(body.key || '');
+  const status = String(body.status || '');
+  const reply = String(body.reply || '').trim().slice(0, 500) || null;
+  if (!key || !REQUEST_REPLY_STATUSES.includes(status)) throw new HttpError(400, 'bad_request');
+  if (status === 'alternative' && !reply) throw new HttpError(400, 'reply_required');
+  const { results } = await env.DB.prepare(
+    "SELECT id, user_id, store_name FROM store_requests WHERE store_key = ? AND status IN ('new', 'working')"
+  ).bind(key).all();
+  if (!results.length) throw new HttpError(404, 'not_found');
+  await env.DB.prepare(
+    `UPDATE store_requests SET status = ?, reply = ?, handled_at = datetime('now')
+      WHERE store_key = ? AND status IN ('new', 'working')`
+  ).bind(status, reply, key).run();
+  const notified = new Set();
+  const sends = [];
+  for (const r of results) {
+    if (notified.has(r.user_id)) continue;
+    notified.add(r.user_id);
+    sends.push(tgSend(env, r.user_id, REQUEST_MESSAGES[status](r.store_name, reply)));
+  }
+  ctx.waitUntil(Promise.all(sends));
+  return json({ ok: true, updated: results.length, notified: notified.size });
+}
+
+// Quando Awin approva un negozio, chiude le segnalazioni che lo riguardano e avvisa chi l'aveva chiesto.
+async function resolveRequestsForStores(env, activated) {
+  let resolved = 0;
+  for (const s of activated) {
+    const domains = String(s.domains || '').split(',').map((d) => d.trim().toLowerCase()).filter(Boolean);
+    const keys = [...new Set([storeKey(s.name), storeKey(String(s.name).split(/\s+/)[0]), s.id, ...domains.map(domainBase)].filter(Boolean))];
+    const marks = keys.map(() => '?').join(',');
+    const { results } = await env.DB.prepare(
+      `SELECT id, user_id, store_name FROM store_requests
+        WHERE status IN ('new', 'working') AND (store_id = ? OR store_key IN (${marks}))`
+    ).bind(s.id, ...keys).all();
+    if (!results.length) continue;
+    await env.DB.prepare(
+      `UPDATE store_requests SET status = 'added', store_id = ?, handled_at = datetime('now')
+        WHERE id IN (${results.map(() => '?').join(',')})`
+    ).bind(s.id, ...results.map((r) => r.id)).run();
+    const seen = new Set();
+    for (const r of results) {
+      if (seen.has(r.user_id)) continue;
+      seen.add(r.user_id);
+      await tgSend(env, r.user_id, REQUEST_MESSAGES.added(s.name, null));
+    }
+    resolved += results.length;
+  }
+  return resolved;
+}
+
 // -------------------------------------------------------------- endpoint admin
 
 async function requireAdmin(request, env) {
@@ -655,6 +944,9 @@ async function handleAdminSetup(request, env) {
     },
     checks: {
       awinApiToken: !!env.AWIN_API_TOKEN,
+      email: env.RESEND_API_KEY && env.NOTIFY_EMAIL
+        ? await sendEmail(env, 'Cashback Bot: email di prova', 'Funziona: le segnalazioni dei negozi da aggiungere arriveranno a questo indirizzo.')
+        : { ok: false, skipped: true },
       botUsername: env.BOT_USERNAME || null,
       activeStores: (await env.DB.prepare('SELECT COUNT(*) AS n FROM stores WHERE active = 1').first()).n,
     },
@@ -822,9 +1114,10 @@ export async function syncPrograms(env) {
 
   const joined = await awinGet(env, `/publishers/${pub}/programmes`, { relationship: 'joined' });
   const joinedIds = new Set(joined.map((p) => Number(p.id)).filter(Boolean));
-  const { results: stores } = await env.DB.prepare('SELECT id, name, awin_mid, active, awin_info_at FROM stores').all();
+  const { results: stores } = await env.DB.prepare('SELECT id, name, awin_mid, domains, active, awin_info_at FROM stores').all();
 
   const turnedOn = [];
+  const activated = [];
   const turnedOff = [];
   if (String(env.AUTO_ACTIVATE_STORES || 'true') !== 'false') {
     for (const s of stores) {
@@ -833,10 +1126,12 @@ export async function syncPrograms(env) {
       await env.DB.prepare('UPDATE stores SET active = ? WHERE id = ?').bind(want, s.id).run();
       s.active = want;
       (want ? turnedOn : turnedOff).push(s.name);
+      if (want) activated.push(s);
     }
   }
   if (turnedOn.length) await notifyAdmins(env, `Awin ti ha approvato: ${turnedOn.join(', ')}. Ora ${turnedOn.length === 1 ? 'è visibile' : 'sono visibili'} nella Mini App.`);
   if (turnedOff.length) await notifyAdmins(env, `Iscrizione non più attiva su Awin: ${turnedOff.join(', ')}. ${turnedOff.length === 1 ? 'Il negozio è stato nascosto' : 'I negozi sono stati nascosti'} dalla Mini App.`);
+  const resolvedRequests = activated.length ? await resolveRequestsForStores(env, activated) : 0;
 
   const cutoff = Date.now() - STORE_REFRESH_HOURS * 3600 * 1000;
   const due = stores
@@ -869,6 +1164,7 @@ export async function syncPrograms(env) {
         kpi,
         appTracking: tracking ? tracking.includes('APP_TRACKING') : null,
         deeplinkEnabled: typeof p.deeplinkEnabled === 'boolean' ? p.deeplinkEnabled : null,
+        logoUrl: typeof p.logoUrl === 'string' && /^https:\/\//.test(p.logoUrl) ? p.logoUrl : null,
       };
       await env.DB.prepare("UPDATE stores SET awin_info = ?, awin_info_at = datetime('now') WHERE id = ?")
         .bind(JSON.stringify(info), s.id).run();
@@ -877,7 +1173,7 @@ export async function syncPrograms(env) {
       failed.push(`${s.id}: ${String(err && err.message ? err.message : err)}`);
     }
   }
-  return { joined: joinedIds.size, turnedOn, turnedOff, refreshed, failed };
+  return { joined: joinedIds.size, turnedOn, turnedOff, resolvedRequests, refreshed, failed };
 }
 
 export async function syncAwin(env) {

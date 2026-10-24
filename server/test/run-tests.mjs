@@ -59,6 +59,11 @@ async function setAwin(list) {
 // Programmi a cui sei iscritto su Awin (finti), con commissioni per categoria e KPI.
 const PROGRAMS = {
   joined: [9449, 118233, 9418],
+  // Programmi Awin italiani a cui non sei iscritto: servono per le segnalazioni.
+  notjoined: [
+    { id: 99001, name: 'Zalando IT', primarySector: 'Clothing', displayUrl: 'https://www.zalando.it/', validDomains: [{ domain: '*.zalando.it' }] },
+    { id: 99002, name: 'Myprotein IT', primarySector: 'Health & Beauty', displayUrl: 'https://www.myprotein.it/', validDomains: [{ domain: 'myprotein.it' }] },
+  ],
   groups: {
     9449: [
       { groupId: 1, groupCode: 'SALE', groupName: 'SALE', type: 'percentage', percentage: 12 },
@@ -86,6 +91,9 @@ async function setPrograms(p) {
 }
 async function messages() {
   return (await fetch(MOCK + '/__messages')).json();
+}
+async function emails() {
+  return (await fetch(MOCK + '/__emails')).json();
 }
 async function runCron() {
   for (const path of ['/cdn-cgi/handler/scheduled?cron=17+*+*+*+*', '/__scheduled?cron=17+*+*+*+*']) {
@@ -399,6 +407,84 @@ await step('webhook bot: /start risponde con il pulsante della Mini App', async 
   assert.equal(m.reply_markup.inline_keyboard[0][0].web_app.url, 'https://alelimpo.github.io/cashback-bot-app/');
 });
 
+await step('segnalazione negozio: salvata, avviso Telegram ed email con il programma Awin trovato', async () => {
+  const before = (await messages()).length;
+  const r = await call('/api/store-request', { initData: initData(bruno), storeName: 'Zalando', website: 'https://www.zalando.it/scarpe-uomo/', note: 'Compro spesso scarpe' });
+  assert.equal(r.status, 200);
+  assert.equal(r.data.status, 'new');
+  assert.equal(r.data.comingSoon, null);
+  await sleep(800);
+  const msg = (await messages()).slice(before).find((m) => String(m.chat_id) === '111' && m.text && m.text.includes('Zalando'));
+  assert.ok(msg, 'avviso all\'admin su Telegram');
+  assert.ok(msg.text.includes('Sito: zalando.it'));
+  assert.ok(msg.text.includes('merchant-profile/99001'), 'link al programma Awin trovato');
+  assert.ok(!msg.text.includes('Myprotein'));
+  const mail = (await emails()).find((e) => e.subject === 'Segnalazione negozio: Zalando');
+  assert.ok(mail, 'email inviata');
+  assert.deepEqual(mail.to, ['admin@example.com']);
+  assert.ok(mail.text.includes('Compro spesso scarpe'));
+});
+
+await step('segnalazione: doppioni, negozi gia\' presenti e dati non validi', async () => {
+  let r = await call('/api/store-request', { initData: initData(bruno), storeName: 'zalando.it' });
+  assert.equal(r.status, 409);
+  assert.equal(r.data.error, 'already_requested');
+  r = await call('/api/store-request', { initData: initData(bruno), storeName: 'Douglas' });
+  assert.equal(r.status, 409);
+  assert.equal(r.data.error, 'store_available');
+  r = await call('/api/store-request', { initData: initData(bruno), storeName: 'Negozio', website: 'non è un sito' });
+  assert.equal(r.status, 400);
+  r = await call('/api/store-request', { initData: initData(bruno), storeName: 'x' });
+  assert.equal(r.status, 400);
+  // Unieuro e' nel catalogo ma Awin non l'ha ancora approvato: "in arrivo".
+  r = await call('/api/store-request', { initData: initData(bruno), storeName: 'Unieuro' });
+  assert.equal(r.status, 200);
+  assert.equal(r.data.status, 'working');
+  assert.equal(r.data.comingSoon, 'Unieuro');
+});
+
+await step('segnalazione: massimo 5 al giorno per utente', async () => {
+  for (const name of ['Ikea', 'Lidl', 'Decathlon']) {
+    const r = await call('/api/store-request', { initData: initData(bruno), storeName: name });
+    assert.equal(r.status, 200, name);
+  }
+  const r = await call('/api/store-request', { initData: initData(bruno), storeName: 'Leroy Merlin' });
+  assert.equal(r.status, 429);
+});
+
+await step('admin: segnalazioni raggruppate per negozio, risposta a tutti via bot', async () => {
+  let r = await call('/api/store-request', { initData: initData(alice), storeName: 'ZALANDO' });
+  assert.equal(r.status, 200);
+  r = await call('/api/admin/store-requests', { initData: initData(bruno) });
+  assert.equal(r.status, 403);
+  r = await call('/api/admin/store-requests', { initData: initData(alice) });
+  assert.equal(r.status, 200);
+  const z = r.data.requests.find((g) => g.key === 'zalando');
+  assert.equal(z.users, 2);
+  assert.equal(r.data.requests[0].key, 'zalando', 'prima i negozi piu\' richiesti');
+  assert.deepEqual(z.websites, ['zalando.it']);
+  assert.equal(z.awinMatches[0].id, 99001);
+  assert.match(z.awinMatches[0].url, /merchant-profile\/99001$/);
+  assert.ok(z.notes.some((n) => n.includes('Compro spesso scarpe')));
+
+  r = await call('/api/admin/store-requests/update', { initData: initData(alice), key: 'zalando', status: 'alternative' });
+  assert.equal(r.status, 400, 'per un\'alternativa serve il testo');
+  const before = (await messages()).length;
+  r = await call('/api/admin/store-requests/update', { initData: initData(alice), key: 'zalando', status: 'alternative', reply: 'Per le scarpe trovi adidas nella Mini App.' });
+  assert.equal(r.status, 200);
+  assert.equal(r.data.notified, 2);
+  await sleep(500);
+  const sent = (await messages()).slice(before);
+  assert.ok(sent.some((m) => String(m.chat_id) === '222' && m.text.includes('Zalando') && m.text.includes('adidas')));
+  assert.ok(sent.some((m) => String(m.chat_id) === '111' && m.text.includes('adidas')));
+  const me = await call('/api/me', { initData: initData(bruno) });
+  const mine = me.data.storeRequests.find((x) => x.storeName === 'Zalando');
+  assert.equal(mine.status, 'alternative');
+  assert.equal(mine.reply, 'Per le scarpe trovi adidas nella Mini App.');
+  r = await call('/api/admin/store-requests', { initData: initData(alice) });
+  assert.equal(r.data.requests.find((g) => g.key === 'zalando'), undefined, 'chiusa');
+});
+
 await step('configurazione admin: webhook, pulsante menu e indirizzo Awin', async () => {
   const denied = await call('/api/admin/setup', { initData: initData(bruno) });
   assert.equal(denied.status, 403);
@@ -408,6 +494,8 @@ await step('configurazione admin: webhook, pulsante menu e indirizzo Awin', asyn
   assert.equal(r.data.telegram.webhook.ok, true);
   assert.equal(r.data.telegram.menuButton.ok, true);
   assert.equal(r.data.checks.awinApiToken, true);
+  assert.equal(r.data.checks.email.ok, true);
+  assert.ok((await emails()).some((e) => e.subject === 'Cashback Bot: email di prova'));
   assert.equal(r.data.checks.activeStores, 3);
   assert.ok(r.data.lastSync && r.data.lastSync.synced >= 1, 'ultima sincronizzazione registrata');
   const msgs = await messages();
@@ -437,6 +525,11 @@ await step('cron: negozi accesi e spenti da soli in base alle iscrizioni Awin', 
   const msgs = (await messages()).slice(before);
   assert.ok(msgs.some((m) => String(m.chat_id) === '111' && m.text.includes('Awin ti ha approvato') && m.text.includes('Unieuro')));
   assert.ok(msgs.some((m) => String(m.chat_id) === '111' && m.text.includes('Temu')));
+  // Bruno aveva segnalato Unieuro: ora e' approvato e il bot glielo dice.
+  assert.ok(msgs.some((m) => String(m.chat_id) === '222' && m.text.includes('Unieuro è ora nella Mini App')));
+  const req = (await call('/api/me', { initData: initData(bruno) })).data.storeRequests.find((x) => x.storeName === 'Unieuro');
+  assert.equal(req.status, 'added');
+  assert.match(unieuro.logo, /^https:\/\/ui\.awin\.com\//);
 });
 
 await step('Italo non accetta link a una pagina: si apre la home', async () => {
