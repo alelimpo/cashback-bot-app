@@ -1,0 +1,3 @@
+# GitHub Pages: pubblica solo la Mini App, non il codice del server.
+exclude:
+  - server

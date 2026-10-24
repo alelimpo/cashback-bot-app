@@ -1,0 +1,17 @@
+{
+  "name": "cashback-bot-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Backend del Cashback Bot: Cloudflare Workers + D1, collegato ad Awin e Telegram",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:init": "wrangler d1 execute cashback-bot --remote --file=schema.sql",
+    "db:init:local": "wrangler d1 execute cashback-bot --local --file=schema.sql",
+    "test": "node test/run-tests.mjs"
+  },
+  "devDependencies": {
+    "wrangler": "^4"
+  }
+}

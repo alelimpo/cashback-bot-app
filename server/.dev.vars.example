@@ -1,0 +1,10 @@
+# Solo per le prove sul tuo computer con "npm run dev" + "npm test".
+# Copia questo file come .dev.vars. Non usare token veri qui.
+TELEGRAM_BOT_TOKEN=123456:TEST-TOKEN
+AWIN_API_TOKEN=test-awin-token
+NOTIFY_SECRET=local-notify-secret-123456
+TELEGRAM_WEBHOOK_SECRET=local-webhook-secret
+AWIN_API_BASE=http://127.0.0.1:8799
+TELEGRAM_API_BASE=http://127.0.0.1:8799
+ADMIN_IDS=111
+BOT_USERNAME=TestCashbackBot

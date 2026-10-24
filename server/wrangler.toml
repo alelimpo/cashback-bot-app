@@ -1,0 +1,38 @@
+name = "cashback-bot"
+main = "src/index.js"
+compatibility_date = "2025-09-01"
+
+# Database D1 creato il 24/10/2026 (Europa occidentale).
+[[d1_databases]]
+binding = "DB"
+database_name = "cashback-bot"
+database_id = "50a7ef9b-72b0-4eef-b869-c0b6a2ffe13b"
+
+# Sincronizzazione con l'API Awin una volta all'ora (al minuto 17).
+[triggers]
+crons = ["17 * * * *"]
+
+[vars]
+AWIN_PUBLISHER_ID = "3133036"
+# Quota della commissione che va all'utente (0.6 = 60%).
+USER_SHARE = "0.6"
+# Soglia minima di prelievo e bonus per ogni amico invitato, in euro.
+MIN_PAYOUT_EUR = "10"
+REFERRAL_BONUS_EUR = "2"
+# Indirizzo della Mini App su GitHub Pages (accetta solo richieste da qui).
+ALLOWED_ORIGIN = "https://alelimpo.github.io"
+MINI_APP_URL = "https://alelimpo.github.io/cashback-bot-app/"
+# Il tuo ID Telegram (numerico): vedi la sezione admin e ricevi gli avvisi di prelievo.
+ADMIN_IDS = ""
+# Nome utente del bot senza @, per il link di invito (es. CashbackItaliaBot).
+BOT_USERNAME = ""
+# Facoltativo: link diretto della Mini App creata con BotFather (es. https://t.me/CashbackItaliaBot/app).
+TELEGRAM_APP_LINK = ""
+
+# Segreti: NON scriverli qui (questo file e' pubblico su GitHub).
+# Si impostano nella dashboard Cloudflare: Worker cashback-bot > Impostazioni > Variabili e segreti,
+# tipo "Segreto":
+#   TELEGRAM_BOT_TOKEN   (obbligatorio, da @BotFather)
+#   AWIN_API_TOKEN       (obbligatorio, da https://ui.awin.com/awin-api)
+#   NOTIFY_SECRET, TELEGRAM_WEBHOOK_SECRET (facoltativi: se mancano vengono ricavati dal token del bot)
+# Nota: le variabili qui sopra vengono riscritte a ogni pubblicazione; si cambiano in questo file.
