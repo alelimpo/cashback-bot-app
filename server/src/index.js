@@ -517,15 +517,32 @@ function normalizeStatus(s) {
   return ['pending', 'approved', 'declined', 'deleted'].includes(v) ? v : 'pending';
 }
 
-function normalizeApiTransaction(t) {
+// Alcuni programmi (es. Temu) pagano in dollari: gli importi vengono convertiti in euro
+// con il cambio impostato in FX_TO_EUR. Una valuta senza cambio vale 0 finche' non lo aggiungi.
+export function toEurCents(cents, currency, env) {
+  const cur = String(currency || 'EUR').toUpperCase();
+  if (cur === 'EUR') return cents;
+  let rates = {};
+  try { rates = JSON.parse(env.FX_TO_EUR || '{}'); } catch { rates = {}; }
+  const rate = Number(rates[cur]);
+  if (!Number.isFinite(rate) || rate <= 0) {
+    console.warn(`Valuta ${cur} senza cambio in FX_TO_EUR: importo trattato come 0`);
+    return 0;
+  }
+  return Math.floor(cents * rate);
+}
+
+function normalizeApiTransaction(t, env) {
   const clickRefs = t.clickRefs && typeof t.clickRefs === 'object' ? t.clickRefs : {};
+  const currency = (t.commissionAmount && t.commissionAmount.currency) || t.currency || 'EUR';
+  const saleCurrency = (t.saleAmount && t.saleAmount.currency) || currency;
   return {
     id: String(t.id),
     clickRef: clickRefs.clickRef || t.clickRef || null,
     mid: Number(t.advertiserId) || null,
-    saleCents: toCents(t.saleAmount),
-    commissionCents: toCents(t.commissionAmount),
-    currency: (t.commissionAmount && t.commissionAmount.currency) || t.currency || 'EUR',
+    saleCents: toEurCents(toCents(t.saleAmount), saleCurrency, env),
+    commissionCents: toEurCents(toCents(t.commissionAmount), currency, env),
+    currency,
     status: normalizeStatus(t.commissionStatus),
     paid: t.paidToPublisher === true || t.paidToPublisher === 1 || t.paidToPublisher === 'true' ? 1 : 0,
     date: t.transactionDate ? String(t.transactionDate) : null,
@@ -567,8 +584,8 @@ async function handleAwinNotify(request, env, url, ctx) {
     id: String(data.transactionId),
     clickRef: data.clickRef ? String(data.clickRef) : null,
     mid: Number(data.merchantId) || null,
-    saleCents: toCents(data.transactionAmount),
-    commissionCents: toCents(data.commission),
+    saleCents: toEurCents(toCents(data.transactionAmount), data.transactionCurrency, env),
+    commissionCents: toEurCents(toCents(data.commission), data.transactionCurrency, env),
     currency: data.transactionCurrency || 'EUR',
     status: 'pending', // la notifica crea solo cashback "in attesa"
     paid: 0,
@@ -629,14 +646,25 @@ export async function syncAwin(env) {
          OR (status = 'pending' AND COALESCE(transaction_date, created_at) < ?)
       ORDER BY updated_at LIMIT ?`
   ).bind(awinDate(start), MAX_ID_LOOKUPS_PER_RUN * IDS_PER_LOOKUP).all();
-  const openIds = open.map((r) => r.id).filter((id) => /^\d+$/.test(id) && !byId.has(id));
-  for (let i = 0; i < openIds.length; i += IDS_PER_LOOKUP) {
-    const ids = openIds.slice(i, i + IDS_PER_LOOKUP).join(',');
+  const openIds = open.map((r) => r.id).filter((id) => !byId.has(id));
+  const lookupIds = openIds.filter((id) => /^\d+$/.test(id));
+  for (let i = 0; i < lookupIds.length; i += IDS_PER_LOOKUP) {
+    const ids = lookupIds.slice(i, i + IDS_PER_LOOKUP).join(',');
     const list = await awinGet(env, `/publishers/${pub}/transactions`, { ids, timezone: 'UTC' });
     for (const t of list) byId.set(String(t.id), t);
   }
 
-  const txs = [...byId.values()].map(normalizeApiTransaction).filter((t) => t.id && t.id !== 'undefined');
+  // Transazioni che Awin non conosce (es. notifiche false o cancellate): una "in attesa"
+  // fuori dalla finestra e assente anche nella ricerca per ID viene annullata.
+  const unknown = openIds.filter((id) => !byId.has(id));
+  if (unknown.length) {
+    await env.DB.batch(unknown.map((id) => env.DB.prepare(
+      `UPDATE transactions SET status = CASE WHEN status = 'pending' THEN 'deleted' ELSE status END,
+              updated_at = datetime('now') WHERE id = ?`
+    ).bind(id)));
+  }
+
+  const txs = [...byId.values()].map((t) => normalizeApiTransaction(t, env)).filter((t) => t.id && t.id !== 'undefined');
   if (txs.length === 0) {
     await grantReferralBonuses(env);
     return { synced: 0 };

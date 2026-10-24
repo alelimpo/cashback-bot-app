@@ -19,6 +19,9 @@ USER_SHARE = "0.6"
 # Soglia minima di prelievo e bonus per ogni amico invitato, in euro.
 MIN_PAYOUT_EUR = "10"
 REFERRAL_BONUS_EUR = "2"
+# Cambio verso l'euro per i programmi che pagano in altre valute (Temu paga in dollari).
+# 1 USD = 0,89 EUR al 23/10/2026; qui 0,88 per prudenza. Aggiornalo ogni tanto.
+FX_TO_EUR = '{"USD": 0.88}'
 # Indirizzo della Mini App su GitHub Pages (accetta solo richieste da qui).
 ALLOWED_ORIGIN = "https://alelimpo.github.io"
 MINI_APP_URL = "https://alelimpo.github.io/cashback-bot-app/"

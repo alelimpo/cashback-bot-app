@@ -232,6 +232,34 @@ await step('Vodafone: importo fisso 25 euro all\'utente, vendita arrivata solo d
   assert.equal(r.data.transactions.find((x) => x.id === '900003').state, 'cancelled');
 });
 
+await step('Temu in dollari: commissione convertita in euro', async () => {
+  const link = await call('/api/link', { initData: initData(bruno), storeId: 'temu' });
+  const temuClick = new URL(link.data.url).searchParams.get('clickref');
+  const usd = { ...awinTx(900004, temuClick, 118233, 10, 'pending', false), commissionAmount: { amount: 10, currency: 'USD' }, saleAmount: { amount: 100, currency: 'USD' } };
+  await setAwin([
+    awinTx(900001, brunoDouglasClick, 9449, 12, 'approved', true),
+    awinTx(900002, brunoVodafoneClick, 9418, 51, 'approved', true),
+    awinTx(900003, brunoDouglasClick, 9449, 6, 'declined', false),
+    usd,
+  ]);
+  await runCron();
+  const r = await call('/api/me', { initData: initData(bruno) });
+  const t = r.data.transactions.find((x) => x.id === '900004');
+  assert.equal(t.amountCents, 528); // 10 USD x 0,88 = 8,80 EUR; 60% = 5,28 EUR
+  assert.equal(t.state, 'pending');
+});
+
+await step('notifica falsa vecchia, sconosciuta ad Awin: annullata dal cron', async () => {
+  const old = new Date(Date.now() - 45 * 86400 * 1000).toISOString().slice(0, 19).replace('T', ' ');
+  await notify({ transactionId: '777777', transactionDate: old, affiliateId: '3133036', merchantId: '9449', clickRef: brunoDouglasClick, commission: '300.00' });
+  let r = await call('/api/me', { initData: initData(bruno) });
+  const before = r.data.balance.pendingCents;
+  await runCron();
+  r = await call('/api/me', { initData: initData(bruno) });
+  assert.equal(r.data.transactions.find((x) => x.id === '777777').state, 'cancelled');
+  assert.equal(r.data.balance.pendingCents, before - 18000);
+});
+
 await step('prelievo: email non valida rifiutata', async () => {
   const r = await call('/api/withdraw', { initData: initData(bruno), method: 'paypal', destination: 'non-una-email' });
   assert.equal(r.data.error, 'invalid_destination');
