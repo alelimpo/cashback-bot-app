@@ -995,7 +995,7 @@ async function handleTelegramWebhook(request, env) {
     await upsertUser(env, msg.from, payload);
     const share = Math.round(userShare(env) * 100);
     await tgSend(env, msg.chat.id,
-      `Ciao! Quando compri da un negozio partner aprendolo da qui, il negozio ci paga una commissione: il ${share}% lo giriamo a te come cashback, il resto copre il servizio.\n\nNella Mini App trovi per ogni negozio la percentuale esatta per categoria, i tempi medi di accredito e le regole per non perdere il cashback. Prelievo da ${formatEuro(eurosToCents(env.MIN_PAYOUT_EUR, 1000))} con PayPal o buono regalo.`,
+      `Ciao! Fai la spesa online che faresti comunque, allo stesso prezzo, ma partendo da qui: così una parte dei soldi ti torna indietro.\n\nOgni negozio ci paga una commissione: il ${share}% è tuo, noi teniamo il ${100 - share}%. I tempi sono lunghi (spesso qualche mese, perché il negozio paga solo dopo aver confermato l'ordine), ma nella Mini App vedi sempre percentuali, tempi medi e regole di ogni negozio. Prelievo da ${formatEuro(eurosToCents(env.MIN_PAYOUT_EUR, 1000))} con PayPal o buono regalo.`,
       { reply_markup: { inline_keyboard: [[{ text: 'Apri Cashback Bot', web_app: { url: env.MINI_APP_URL } }]] } });
   }
   return new Response('OK');

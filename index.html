@@ -23,6 +23,7 @@
                 </span>
             </div>
             <p class="text-sm opacity-90">Ciao, <span id="userName" class="font-bold">Utente</span>! 👋</p>
+            <p id="tagline" class="text-xs opacity-90 mt-1">Stesso prezzo di sempre, e la parte più grande della commissione torna a te.</p>
         </div>
 
         <!-- Avviso fuori da Telegram -->
@@ -45,10 +46,16 @@
             <p id="minNote" class="text-xs text-slate-400 mt-3"></p>
         </div>
 
+        <!-- Come funziona -->
+        <details id="howCard" class="mx-5 mt-4 bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
+            <summary class="font-bold text-slate-800 cursor-pointer">Come funziona, senza sorprese</summary>
+            <div id="howBody" class="mt-3 text-sm text-slate-600 space-y-3"></div>
+        </details>
+
         <!-- Negozi -->
         <div class="mx-5 mt-4 bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
             <h2 class="font-bold text-slate-800 mb-1">Negozi con cashback</h2>
-            <p class="text-xs text-slate-500 mb-3">Apri sempre il negozio da qui prima di comprare: il cashback vale solo se l'ultimo clic prima dell'acquisto è il nostro.</p>
+            <p class="text-xs text-slate-500 mb-3">Le percentuali sono già la tua parte. Tocca un negozio per vedere categorie, tempi e regole. Aprilo sempre da qui prima di comprare: vale l'ultimo clic.</p>
 
             <input type="search" id="storeSearch" placeholder="Cerca un negozio" class="w-full px-4 py-2.5 mb-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
 
@@ -136,6 +143,21 @@
         </div>
     </div>
 
+    <!-- Scheda negozio -->
+    <div id="storeSheet" class="hidden fixed inset-0 bg-black/40 flex items-end z-40">
+        <div class="sheet w-full bg-white rounded-t-3xl p-6 max-h-[88vh] overflow-y-auto">
+            <div class="flex justify-between items-start gap-3 mb-3">
+                <div>
+                    <h3 id="ssName" class="font-bold text-lg text-slate-800"></h3>
+                    <p id="ssCategory" class="text-xs text-slate-500"></p>
+                </div>
+                <button id="ssClose" class="text-slate-400 text-2xl leading-none px-2" aria-label="Chiudi">&times;</button>
+            </div>
+            <div id="ssBody" class="space-y-5 text-sm text-slate-700"></div>
+            <button id="ssGo" class="w-full mt-5 bg-blue-600 text-white font-bold py-3 rounded-xl">Vai al negozio</button>
+        </div>
+    </div>
+
     <!-- Messaggi -->
     <div id="toast" class="hidden fixed left-4 right-4 bottom-6 z-50 text-white text-sm font-semibold px-4 py-3 rounded-xl shadow-lg"></div>
 
@@ -167,7 +189,7 @@
             cancelled: { label: 'Annullato', cls: 'text-slate-400 line-through' },
         };
 
-        let state = { stores: [], balance: null };
+        let state = { stores: [], balance: null, program: null, currentStore: null };
         const $ = (id) => document.getElementById(id);
 
         function euro(cents) {
@@ -236,18 +258,139 @@
             $('storesEmpty').classList.toggle('hidden', state.stores.length > 0);
             for (const s of shown) {
                 const row = el('div', 'flex items-center justify-between gap-3 py-3');
-                const info = el('div', 'min-w-0');
+                const info = el('button', 'min-w-0 text-left flex-1');
                 info.append(el('p', 'font-semibold text-slate-800 truncate', s.name));
                 const sub = el('p', 'text-xs text-slate-500');
-                const rate = el('span', 'font-bold text-green-600', s.cashbackLabel);
-                sub.append(rate);
+                sub.append(el('span', 'font-bold text-green-600', s.cashbackLabel));
                 if (s.note) sub.append(document.createTextNode(' · ' + s.note));
-                info.append(sub);
+                info.append(sub, el('p', 'text-xs text-blue-600 font-semibold mt-0.5', 'Dettagli, tempi e regole'));
+                info.addEventListener('click', () => openStoreSheet(s));
                 const btn = el('button', 'shrink-0 bg-blue-600 text-white text-sm font-bold py-2 px-4 rounded-xl', 'Vai');
                 btn.addEventListener('click', () => openStore(s.id, null, btn));
                 row.append(info, btn);
                 list.append(row);
             }
+        }
+
+        // Sezione "Come funziona": i numeri arrivano dal server, cosi' restano sempre veri.
+        function renderHow(p, firstTime) {
+            if (!p) return;
+            const body = $('howBody');
+            body.replaceChildren();
+            const block = (title, text) => {
+                const d = el('div');
+                d.append(el('p', 'font-semibold text-slate-800', title), el('p', '', text));
+                body.append(d);
+            };
+            const ours = 100 - p.userSharePercent;
+            const exUser = (10 * p.userSharePercent) / 100;
+            block('Spendi come sempre, ti torna indietro qualcosa',
+                'La spesa l\'avresti fatta comunque. Se la fai partendo da qui, paghi lo stesso prezzo e in più ti torna indietro una parte dei soldi. Comprando normalmente non avresti niente.');
+            block('La parte più grande è tua',
+                'Per ogni acquisto il negozio ci paga una commissione. Il ' + p.userSharePercent + '% va a te, noi teniamo il ' + ours + '% per far funzionare il servizio. Le percentuali che vedi nei negozi sono già la tua parte.');
+            block('Un esempio',
+                'Spendi 100 € e il negozio ci paga il 10%, cioè 10 €. A te vanno ' + euro(exUser * 100) + ', a noi ' + euro((10 - exUser) * 100) + '.');
+            block('I tempi sono lunghi, ma li vedi sempre',
+                'Il negozio ci paga solo dopo aver confermato l\'ordine, e spesso passano mesi. Per ogni negozio ti mostriamo i tempi medi secondo Awin, e per ogni acquisto la data in cui dovrebbe diventare prelevabile. Ti scriviamo noi a ogni passaggio.');
+            block('Le tre fasi',
+                'In attesa: l\'acquisto è registrato. Approvato: il negozio ha confermato l\'ordine. Disponibile: Awin ci ha pagato e puoi prelevare.');
+            block('Prelievo',
+                'Da ' + euro(p.minPayoutCents) + ' di saldo disponibile, con PayPal o buono regalo digitale via email. Paghiamo a mano, di solito entro ' + p.payoutWorkingDays + ' giorni lavorativi.');
+            block('Quando il cashback viene annullato',
+                'Se restituisci o annulli l\'ordine, o se il negozio non lo riconosce: per esempio perché prima di pagare hai cliccato il link di un altro sito di sconti. Le regole di ogni negozio sono nella sua scheda.');
+            if (p.referralBonusCents > 0) {
+                block('Invita un amico',
+                    'Ricevi ' + euro(p.referralBonusCents) + ' quando un amico che hai invitato ottiene il suo primo cashback disponibile. Il bonus lo paghiamo noi: all\'amico non viene tolto nulla.');
+            }
+            const more = el('a', 'text-blue-600 font-semibold underline', 'Leggi i Termini completi');
+            more.href = 'termini.html';
+            body.append(more);
+            if (firstTime) $('howCard').open = true;
+        }
+
+        function renderTagline(p) {
+            if (p) $('tagline').textContent = 'Stesso prezzo di sempre. Il ' + p.userSharePercent + '% della commissione è tuo, noi teniamo il ' + (100 - p.userSharePercent) + '%.';
+        }
+
+        function section(title) {
+            const wrap = el('div');
+            wrap.append(el('p', 'text-xs font-bold text-slate-500 uppercase tracking-wider mb-2', title));
+            return wrap;
+        }
+        function bullets(items) {
+            const ul = el('ul', 'list-disc pl-5 space-y-1');
+            for (const t of items) ul.append(el('li', '', t));
+            return ul;
+        }
+
+        function openStoreSheet(s) {
+            state.currentStore = s;
+            const p = state.program || { userSharePercent: 60 };
+            $('ssName').textContent = s.name;
+            $('ssCategory').textContent = (s.category ? s.category + ' · ' : '') + 'cashback ' + s.cashbackLabel;
+            const body = $('ssBody');
+            body.replaceChildren();
+
+            // Quanto ricevi
+            const rates = section('Quanto ricevi');
+            const table = el('table', 'w-full text-sm');
+            const head = el('tr', 'text-xs text-slate-500');
+            head.append(el('th', 'text-left font-semibold pb-1', 'Categoria'), el('th', 'text-right font-semibold pb-1 px-2', 'Il negozio ci paga'), el('th', 'text-right font-semibold pb-1', 'A te'));
+            table.append(head);
+            for (const r of s.rates || []) {
+                const zero = r.youGet === '0%' || r.youGet === '0,00 €';
+                const tr = el('tr', 'border-t border-slate-100');
+                tr.append(
+                    el('td', 'py-1.5 pr-2', r.label),
+                    el('td', 'py-1.5 px-2 text-right text-slate-500 whitespace-nowrap', r.storePays),
+                    el('td', 'py-1.5 text-right font-bold whitespace-nowrap ' + (zero ? 'text-slate-400' : 'text-green-600'), zero ? 'nessuno' : r.youGet),
+                );
+                table.append(tr);
+            }
+            rates.append(table, el('p', 'text-xs text-slate-500 mt-2', 'A te va il ' + p.userSharePercent + '% di quello che il negozio ci paga. Il cashback esatto dipende dalla categoria di ciò che compri.'));
+            body.append(rates);
+
+            // Quando arriva
+            const t = s.timing || {};
+            const when = section('Quando arriva');
+            const lines = [];
+            if (t.validationDays) lines.push('Il negozio conferma gli ordini in media in ' + t.validationDays + ' giorni, il tempo per eventuali resi.');
+            if (t.avgPaymentDays) {
+                const months = Math.max(1, Math.round(t.avgPaymentDays / 30));
+                lines.push('In media il cashback diventa prelevabile ' + t.avgPaymentDays + ' giorni dopo l\'acquisto (circa ' + months + (months === 1 ? ' mese' : ' mesi') + '): è il tempo che il negozio impiega a pagare la commissione.');
+            } else {
+                lines.push('Awin non ha ancora un tempo medio di pagamento per questo negozio. Ti avvisiamo con un messaggio quando il cashback è disponibile.');
+            }
+            if (t.approvalPercent !== null && t.approvalPercent !== undefined) {
+                lines.push('In media il negozio conferma il ' + String(t.approvalPercent).replace('.', ',') + '% degli ordini. Gli altri vengono annullati: resi, ordini cancellati o non riconosciuti.');
+            }
+            when.append(bullets(lines));
+            body.append(when);
+
+            // Regole
+            const r = s.rules || {};
+            const rules = section('Regole per non perdere il cashback');
+            const ruleLines = ['Apri il negozio da qui subito prima di comprare. Se clicchi il link di un altro sito di sconti o cashback, l\'acquisto va a loro.'];
+            if (r.cookieDays) ruleLines.push('Completa l\'acquisto entro ' + r.cookieDays + ' giorni dal clic.');
+            if (r.appTracking === false) ruleLines.push('Paga nel browser che si apre, non nell\'app del negozio: gli acquisti dall\'app non vengono registrati.');
+            else if (r.appTracking === true) ruleLines.push('Il negozio registra anche gli acquisti dalla sua app, se la apri dal nostro link.');
+            else ruleLines.push('Per sicurezza completa l\'acquisto nel browser che si apre.');
+            ruleLines.push('Accetta i cookie sul sito del negozio e non usare codici sconto trovati su altri siti.');
+            if (r.commissionBase) ruleLines.push('Il cashback si calcola sul ' + r.commissionBase + '.');
+            if (s.productLinks === false) ruleLines.push('Il link apre la pagina principale del negozio.');
+            for (const n of r.notes || []) ruleLines.push(n);
+            rules.append(bullets(ruleLines));
+            body.append(rules);
+
+            // Annullamenti
+            const cancel = section('Il cashback può essere annullato se');
+            cancel.append(bullets((r.declineReasons && r.declineReasons.length) ? r.declineReasons : ['restituisci o annulli l\'ordine', 'l\'ordine non viene pagato o evaso', 'l\'ultimo clic prima dell\'acquisto è di un altro sito']));
+            body.append(cancel);
+
+            const src = 'Fonte: programma di affiliazione del negozio sul network Awin' + (s.updatedAt ? ', dati aggiornati al ' + day(s.updatedAt) : '') + '. Le medie descrivono il passato e non sono una garanzia.';
+            body.append(el('p', 'text-xs text-slate-400', src));
+
+            $('storeSheet').classList.remove('hidden');
         }
 
         function renderMe(me) {
@@ -257,7 +400,10 @@
             state.balance = me.balance;
             $('availableAmount').textContent = euro(me.balance.availableCents);
             $('pendingAmount').textContent = euro(me.balance.pendingCents);
-            $('minNote').textContent = 'Puoi prelevare da ' + euro(me.balance.minPayoutCents) + ' in su. Il cashback diventa disponibile quando il negozio conferma l\'ordine e noi riceviamo la commissione: di solito servono alcune settimane.';
+            $('minNote').textContent = 'Puoi prelevare da ' + euro(me.balance.minPayoutCents) + ' in su. Il cashback diventa disponibile quando il negozio conferma l\'ordine e Awin ci paga la commissione: i tempi medi di ogni negozio sono nella sua scheda.';
+            state.program = me.program || null;
+            renderHow(state.program, (me.transactions || []).length === 0);
+            renderTagline(state.program);
 
             const open = (me.withdrawals || []).find((w) => w.status === 'requested');
             $('withdrawNote').classList.toggle('hidden', !open);
@@ -273,7 +419,8 @@
                 const st = STATES[t.state] || STATES.pending;
                 const row = el('div', 'flex justify-between items-center py-2.5');
                 const left = el('div');
-                left.append(el('p', 'text-sm font-semibold text-slate-800', t.store), el('p', 'text-xs ' + st.cls, st.label + (t.date ? ' · ' + day(t.date) : '')));
+                left.append(el('p', 'text-sm font-semibold text-slate-800', t.store), el('p', 'text-xs ' + st.cls, st.label + (t.date ? ' · acquisto del ' + day(t.date) : '')));
+                if (t.expectedAvailableAt) left.append(el('p', 'text-xs text-slate-400', 'Prelevabile indicativamente dal ' + day(t.expectedAvailableAt) + ' (media del negozio)'));
                 row.append(left, el('p', 'text-sm font-bold ' + (t.state === 'cancelled' ? 'text-slate-400 line-through' : 'text-slate-800'), euro(t.amountCents)));
                 tx.append(row);
             }
@@ -373,6 +520,10 @@
 
         $('storeSearch').addEventListener('input', renderStores);
 
+        $('ssClose').addEventListener('click', () => $('storeSheet').classList.add('hidden'));
+        $('storeSheet').addEventListener('click', (e) => { if (e.target === $('storeSheet')) $('storeSheet').classList.add('hidden'); });
+        $('ssGo').addEventListener('click', () => { if (state.currentStore) openStore(state.currentStore.id, null, $('ssGo')); });
+
         $('withdrawBtn').addEventListener('click', () => {
             if (!state.balance) { toast('Apri la Mini App dal bot Telegram.', true); return; }
             if (state.balance.availableCents < state.balance.minPayoutCents) {
@@ -443,7 +594,14 @@
             if (!initData) {
                 $('notInTelegram').classList.remove('hidden');
                 $('balanceCard').classList.add('hidden');
-                try { state.stores = (await api('/api/stores')).stores; renderStores(); } catch (e) { /* server non raggiungibile */ }
+                try {
+                    const pub = await api('/api/stores');
+                    state.stores = pub.stores;
+                    state.program = pub.program || null;
+                    renderStores();
+                    renderHow(state.program, true);
+                    renderTagline(state.program);
+                } catch (e) { /* server non raggiungibile */ }
                 return;
             }
             try {

@@ -14,7 +14,8 @@ crons = ["17 * * * *"]
 
 [vars]
 AWIN_PUBLISHER_ID = "3133036"
-# Quota della commissione che va all'utente (0.6 = 60%).
+# Quota della commissione che va all'utente (0.6 = 60%). La Mini App mostra il valore da sola;
+# se lo cambi, aggiorna anche la sezione 2 di termini.html.
 USER_SHARE = "0.6"
 # Soglia minima di prelievo e bonus per ogni amico invitato, in euro.
 MIN_PAYOUT_EUR = "10"
