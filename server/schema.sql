@@ -22,8 +22,11 @@ CREATE TABLE IF NOT EXISTS stores (
   rate_max         REAL NOT NULL,              -- % massima, oppure euro fissi per 'fixed'
   rate_note        TEXT,                       -- nota mostrata all'utente
   user_fixed_cents INTEGER,                    -- se valorizzato: importo fisso all'utente
-  active           INTEGER NOT NULL DEFAULT 0,
-  sort             INTEGER NOT NULL DEFAULT 100
+  active           INTEGER NOT NULL DEFAULT 0, -- 1 quando Awin ti approva (lo imposta il server)
+  sort             INTEGER NOT NULL DEFAULT 100,
+  details          TEXT,                       -- scheda per l'utente: regole, note, tempi (vedi store-details.sql)
+  awin_info        TEXT,                       -- commissioni e tempi letti ogni giorno dall'API Awin
+  awin_info_at     TEXT
 );
 
 -- Ogni clic dalla Mini App: l'id e' il clickref che Awin restituisce nella transazione.
@@ -88,8 +91,8 @@ CREATE TABLE IF NOT EXISTS settings (
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
--- Prima ondata di negozi dal piano di lancio. Tutti spenti (active = 0):
--- accendili uno alla volta quando Awin ti approva.
+-- Prima ondata di negozi dal piano di lancio. Tutti spenti (active = 0): il server
+-- li accende da solo quando Awin ti approva. Le schede sono in store-details.sql.
 INSERT OR IGNORE INTO stores (id, name, awin_mid, domains, category, rate_type, rate_max, rate_note, user_fixed_cents, active, sort) VALUES
   ('temu',        'Temu',        118233, 'temu.com',                    'Marketplace', 'percent', 10,    'sul primo ordine; poi molto meno', NULL, 0, 10),
   ('shein',       'Shein',       20431,  'shein.com',                   'Moda',        'percent', 15,    'sul primo ordine; poi molto meno', NULL, 0, 20),
@@ -102,4 +105,4 @@ INSERT OR IGNORE INTO stores (id, name, awin_mid, domains, category, rate_type, 
   ('calzedonia',  'Calzedonia',  73041,  'calzedonia.com',              'Moda',        'percent', 11.54, NULL,                               NULL, 0, 90),
   ('intimissimi', 'Intimissimi', 73037,  'intimissimi.com',             'Moda',        'percent', 11.54, NULL,                               NULL, 0, 91),
   ('tezenis',     'Tezenis',     73043,  'tezenis.com',                 'Moda',        'percent', 11.54, NULL,                               NULL, 0, 92),
-  ('vodafone',    'Vodafone',    9418,   'vodafone.it',                 'Telefonia',   'fixed',   51,    'per attivazione fibra o ADSL online', 2500, 0, 100);
+  ('vodafone',    'Vodafone',    9418,   'vodafone.it',                 'Telefonia',   'fixed',   51,    'per attivazione fibra o ADSL online', NULL, 0, 100);

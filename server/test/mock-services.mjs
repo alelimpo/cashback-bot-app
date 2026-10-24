@@ -4,6 +4,9 @@ import http from 'node:http';
 
 let transactions = [];
 const messages = [];
+// Programmi Awin: iscrizioni, commissioni per categoria e KPI (impostabili dai test).
+let programs = { joined: [], groups: {}, details: {} };
+const calls = [];
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost');
@@ -15,8 +18,28 @@ const server = http.createServer(async (req, res) => {
   };
 
   if (url.pathname === '/__set' && req.method === 'POST') { transactions = JSON.parse(body || '[]'); return send(200, { ok: true }); }
+  if (url.pathname === '/__programs' && req.method === 'POST') { programs = { joined: [], groups: {}, details: {}, ...JSON.parse(body || '{}') }; return send(200, { ok: true }); }
   if (url.pathname === '/__messages') return send(200, messages);
-  if (url.pathname === '/__reset') { transactions = []; messages.length = 0; return send(200, { ok: true }); }
+  if (url.pathname === '/__calls') return send(200, calls);
+  if (url.pathname === '/__reset') { transactions = []; messages.length = 0; calls.length = 0; programs = { joined: [], groups: {}, details: {} }; return send(200, { ok: true }); }
+
+  if (url.pathname.startsWith('/publishers/')) {
+    calls.push(url.pathname);
+    if (req.headers.authorization !== 'Bearer test-awin-token') return send(401, { error: 'unauthorized' });
+  }
+  if (/^\/publishers\/\d+\/programmes$/.test(url.pathname)) {
+    if (url.searchParams.get('relationship') !== 'joined') return send(400, { error: 'expected joined' });
+    return send(200, programs.joined.map((id) => ({ id, name: `Programma ${id}`, status: 'Active' })));
+  }
+  if (/^\/publishers\/\d+\/commissiongroups$/.test(url.pathname)) {
+    const mid = url.searchParams.get('advertiserId');
+    if (!programs.joined.includes(Number(mid))) return send(403, { error: 'not joined' });
+    return send(200, { advertiser: Number(mid), commissionGroups: programs.groups[mid] || [] });
+  }
+  if (/^\/publishers\/\d+\/programmedetails$/.test(url.pathname)) {
+    const mid = url.searchParams.get('advertiserId');
+    return send(200, programs.details[mid] || { programmeInfo: { id: Number(mid) }, kpi: null, commissionRange: [] });
+  }
 
   if (/^\/publishers\/\d+\/transactions\/?$/.test(url.pathname)) {
     if (req.headers.authorization !== 'Bearer test-awin-token') return send(401, { error: 'unauthorized' });
