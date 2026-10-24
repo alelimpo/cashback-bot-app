@@ -30,16 +30,23 @@ Modifica il file su GitHub: Cloudflare ripubblica da solo.
 
 ## Gestione negozi
 
-Dashboard Cloudflare > Storage e database > D1 > `cashback-bot` > Console:
+I negozi si accendono **da soli**: ogni ora il server chiede ad Awin a quali programmi sei iscritto.
+Quando Awin ti approva, il negozio compare nella Mini App e ricevi un messaggio sul bot; se l'iscrizione
+viene chiusa, sparisce. Una volta al giorno il server legge da Awin, per ogni negozio attivo, le
+commissioni per categoria, il tempo medio di pagamento, i giorni di convalida e la percentuale di
+ordini approvati: la Mini App mostra questi numeri, già moltiplicati per la quota utente.
+
+Ogni negozio ha anche una scheda (`store-details.sql`) con le regole che Awin non fornisce via API:
+durata del cookie, motivi di annullamento, note. Serve anche da riserva finché l'API non risponde.
+
+Per aggiungere un negozio nuovo (dashboard Cloudflare > Storage e database > D1 > `cashback-bot` > Console):
 
 ```sql
--- accendere un negozio quando Awin ti approva
-UPDATE stores SET active = 1 WHERE id = 'douglas';
-
--- aggiungerne uno nuovo (ID Awin del programma, dominio, commissione massima per te)
-INSERT INTO stores (id, name, awin_mid, domains, category, rate_type, rate_max, active)
-VALUES ('ovs', 'OVS', 37020, 'ovs.it', 'Moda', 'percent', 5.88, 1);
+INSERT INTO stores (id, name, awin_mid, domains, category, rate_type, rate_max)
+VALUES ('ovs', 'OVS', 37020, 'ovs.it', 'Moda', 'percent', 5.88);
 ```
+
+Si accenderà da solo quando Awin ti approva nel programma 37020.
 
 ## Test in locale
 

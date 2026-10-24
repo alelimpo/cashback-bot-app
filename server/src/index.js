@@ -13,9 +13,25 @@
 
 const MAX_INITDATA_AGE_SEC = 24 * 60 * 60;
 const SYNC_WINDOW_DAYS = 30; // l'API Awin accetta al massimo 31 giorni per richiesta
-const MAX_ID_LOOKUPS_PER_RUN = 6; // l'API Awin permette 20 chiamate al minuto
+const MAX_ID_LOOKUPS_PER_RUN = 4; // l'API Awin permette 20 chiamate al minuto
 const IDS_PER_LOOKUP = 50;
+const STORE_REFRESH_PER_RUN = 4; // 2 chiamate per negozio: totale per esecuzione sotto le 20
+const STORE_REFRESH_HOURS = 24;
 const WITHDRAW_METHODS = ['paypal', 'buono_regalo'];
+const PAYOUT_WORKING_DAYS = 7;
+
+// Motivi di rifiuto letti dai termini Awin di ogni negozio, in italiano.
+const DECLINE_REASONS_IT = {
+  returned: 'ordine reso',
+  partially_returned: 'ordine reso in parte (il cashback si riduce)',
+  cancelled: 'ordine annullato o non pagato',
+  not_new_customer: 'non sei un nuovo cliente del negozio',
+  coupon: 'hai usato un codice sconto non autorizzato',
+  other_partner: "l'ultimo clic prima dell'acquisto è di un altro sito",
+  min_order: "l'ordine non raggiunge l'importo minimo",
+  not_fulfilled: "l'ordine non è stato evaso",
+  credit_check: 'la verifica di pagamento non è andata a buon fine',
+};
 
 class HttpError extends Error {
   constructor(status, code) {
@@ -40,7 +56,7 @@ export default {
       const route = `${request.method} ${url.pathname}`;
       switch (route) {
         case 'GET /api/health': res = json({ ok: true }); break;
-        case 'GET /api/stores': res = json({ stores: await listStores(env) }); break;
+        case 'GET /api/stores': res = json({ stores: await listStores(env), program: programInfo(env) }); break;
         case 'POST /api/me': res = await handleMe(request, env); break;
         case 'POST /api/link': res = await handleLink(request, env); break;
         case 'POST /api/withdraw': res = await handleWithdraw(request, env, ctx); break;
@@ -58,14 +74,16 @@ export default {
   },
 
   async scheduled(controller, env, ctx) {
-    ctx.waitUntil(
-      syncAwin(env)
-        .then((result) => saveSetting(env, 'last_sync', { at: new Date().toISOString(), ...result }))
-        .catch((err) => {
-          console.error('Sync Awin fallita', err);
-          return saveSetting(env, 'last_sync', { at: new Date().toISOString(), error: String(err && err.message ? err.message : err) });
-        })
-    );
+    const run = async (key, fn) => {
+      try {
+        const result = await fn(env);
+        await saveSetting(env, key, { at: new Date().toISOString(), ...result });
+      } catch (err) {
+        console.error(`${key} fallita`, err);
+        await saveSetting(env, key, { at: new Date().toISOString(), error: String(err && err.message ? err.message : err) });
+      }
+    };
+    ctx.waitUntil(run('last_sync', syncAwin).then(() => run('last_programs_sync', syncPrograms)));
   },
 };
 
@@ -149,7 +167,17 @@ function isAdmin(env, userId) {
 }
 
 function formatPercent(n) {
-  return (Math.round(n * 10) / 10).toString().replace('.', ',');
+  return (Math.round(n * 100) / 100).toString().replace('.', ',');
+}
+
+function parseJson(text, fallback) {
+  if (!text) return fallback;
+  try { return JSON.parse(text); } catch { return fallback; }
+}
+
+function toNumber(v) {
+  const n = typeof v === 'string' ? Number(v.replace(',', '.').replace(/[^\d.]/g, '')) : Number(v);
+  return v !== null && v !== '' && Number.isFinite(n) ? n : null;
 }
 
 function formatEuro(cents) {
@@ -282,28 +310,138 @@ async function getBalance(env, userId) {
 
 // --------------------------------------------------------------- negozi
 
+// Scheda negozio mostrata all'utente: ogni numero viene da Awin (commissioni per categoria,
+// tempi medi, ordini approvati) o, finche' Awin non li fornisce, dalla scheda in "details".
+// Le percentuali "a te" sono sempre la commissione del negozio x la quota utente (USER_SHARE).
+
+const TECH_GROUP = /download|install|callback|lead/i;
+
+// Nome leggibile di un gruppo di commissione Awin. "labels" (dalla scheda del negozio)
+// traduce i nomi tecnici; i suffissi _HD/_SP di Unieuro diventano consegna/ritiro.
+export function groupLabel(name, labels = {}) {
+  const raw = String(name || '').trim();
+  if (Object.prototype.hasOwnProperty.call(labels, raw)) return labels[raw];
+  if (/^default$/i.test(raw)) return labels.Default || 'Tutti gli altri prodotti';
+  let suffix = '';
+  let base = raw;
+  const m = /^(.*?)[_ ](HD|SP)$/i.exec(raw);
+  if (m) {
+    base = m[1];
+    suffix = m[2].toUpperCase() === 'HD' ? ' (consegna a casa)' : ' (ritiro in negozio)';
+  }
+  const pretty = Object.prototype.hasOwnProperty.call(labels, base)
+    ? labels[base]
+    : base.replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
+  return pretty + suffix;
+}
+
+function rateEntry(label, type, value, currency, ctx) {
+  if (type === 'fixed') {
+    const storeCents = toEurCents(Math.round(value * 100), currency || 'EUR', ctx.env);
+    const userCents = ctx.fixedOverride != null ? Math.min(ctx.fixedOverride, storeCents) : Math.floor(storeCents * ctx.share);
+    return { label, type, storePays: formatEuro(storeCents), youGet: formatEuro(userCents), sortValue: storeCents, userValue: userCents };
+  }
+  const user = value * ctx.share;
+  return { label, type: 'percent', storePays: `${formatPercent(value)}%`, youGet: `${formatPercent(user)}%`, sortValue: value, userValue: user };
+}
+
+export function buildStoreView(s, env) {
+  const share = userShare(env);
+  const details = parseJson(s.details, {});
+  const info = parseJson(s.awin_info, null);
+  const labels = details.labels || {};
+  const hidden = new Set(details.hideGroups || []);
+  const ctx = { env, share, fixedOverride: s.user_fixed_cents };
+
+  const fromAwin = !!(info && Array.isArray(info.groups) && info.groups.length);
+  const groups = fromAwin ? info.groups : Array.isArray(details.groups) && details.groups.length ? details.groups : null;
+  let rates = [];
+  let defaultRate = null;
+  if (groups) {
+    for (const g of groups) {
+      const name = String(g.groupName || g.groupCode || '');
+      if (hidden.has(name) || hidden.has(String(g.groupCode || ''))) continue;
+      const fixed = g.type === 'fix';
+      const value = toNumber(fixed ? g.amount : g.percentage);
+      if (value === null || (value === 0 && TECH_GROUP.test(name))) continue;
+      const entry = rateEntry(groupLabel(name, labels), fixed ? 'fixed' : 'percent', value, fixed ? g.currency : null, ctx);
+      if (/^default$/i.test(name)) defaultRate = entry; else rates.push(entry);
+    }
+  } else if (Array.isArray(details.rates) && details.rates.length) {
+    for (const r of details.rates) rates.push(rateEntry(r.label, r.type || 'percent', Number(r.value), r.currency || 'EUR', ctx));
+  } else {
+    rates.push(rateEntry('Tutti i prodotti', s.rate_type, Number(s.rate_max), 'EUR', ctx));
+  }
+  // Stessa etichetta e stessa percentuale: una riga sola. Prima le piu' alte, "tutti gli altri" in fondo.
+  const seen = new Set();
+  rates = rates.filter((r) => {
+    const k = `${r.label}|${r.youGet}`;
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  }).sort((a, b) => (a.type === b.type ? b.sortValue - a.sortValue : a.type === 'percent' ? -1 : 1));
+  if (defaultRate) rates.push(defaultRate);
+
+  const percents = rates.filter((r) => r.type === 'percent' && r.userValue > 0).map((r) => r.userValue);
+  const fixeds = rates.filter((r) => r.type === 'fixed' && r.userValue > 0).map((r) => r.userValue);
+  let headline;
+  if (percents.length) {
+    const max = Math.max(...percents);
+    headline = percents.every((p) => p === max) && !fixeds.length ? `${formatPercent(max)}%` : `fino al ${formatPercent(max)}%`;
+  } else if (fixeds.length) {
+    const max = Math.max(...fixeds);
+    headline = fixeds.every((f) => f === max) ? formatEuro(max) : `fino a ${formatEuro(max)}`;
+  } else {
+    headline = 'nessun cashback';
+  }
+
+  const kpi = { ...(details.kpi || {}), ...((info && info.kpi) || {}) };
+  const rules = { ...(details.rules || {}) };
+  if (info && typeof info.appTracking === 'boolean') rules.appTracking = info.appTracking;
+  const deeplink = info && typeof info.deeplinkEnabled === 'boolean' ? info.deeplinkEnabled
+    : typeof details.deeplinkEnabled === 'boolean' ? details.deeplinkEnabled : true;
+  return {
+    id: s.id,
+    name: s.name,
+    category: s.category,
+    domains: String(s.domains || '').split(',').map((d) => d.trim().toLowerCase()).filter(Boolean),
+    cashbackLabel: headline,
+    note: s.rate_note,
+    productLinks: deeplink,
+    rates: rates.map(({ label, type, storePays, youGet }) => ({ label, type, storePays, youGet })),
+    timing: {
+      validationDays: toNumber(kpi.validationDays),
+      avgPaymentDays: toNumber(kpi.averagePaymentTime),
+      approvalPercent: toNumber(kpi.approvalPercentage),
+    },
+    rules: {
+      cookieDays: toNumber(rules.cookieDays),
+      appTracking: typeof rules.appTracking === 'boolean' ? rules.appTracking : null,
+      commissionBase: rules.commissionBase || null,
+      declineReasons: (rules.declineReasons || []).map((k) => DECLINE_REASONS_IT[k] || k),
+      notes: rules.notes || [],
+    },
+    source: fromAwin ? 'awin_api' : 'awin_profile',
+    updatedAt: fromAwin ? s.awin_info_at : details.checkedAt || null,
+  };
+}
+
+const STORE_COLUMNS = 'id, name, domains, category, rate_type, rate_max, rate_note, user_fixed_cents, details, awin_info, awin_info_at';
+
 async function listStores(env) {
   const { results } = await env.DB.prepare(
-    'SELECT id, name, domains, category, rate_type, rate_max, rate_note, user_fixed_cents FROM stores WHERE active = 1 ORDER BY sort, name'
+    `SELECT ${STORE_COLUMNS} FROM stores WHERE active = 1 ORDER BY sort, name`
   ).all();
-  const share = userShare(env);
-  return results.map((s) => {
-    let label;
-    if (s.rate_type === 'fixed') {
-      const cents = s.user_fixed_cents != null ? s.user_fixed_cents : Math.floor(s.rate_max * 100 * share);
-      label = formatEuro(cents);
-    } else {
-      label = `fino al ${formatPercent(s.rate_max * share)}%`;
-    }
-    return {
-      id: s.id,
-      name: s.name,
-      category: s.category,
-      domains: s.domains.split(',').map((d) => d.trim().toLowerCase()).filter(Boolean),
-      cashbackLabel: label,
-      note: s.rate_note,
-    };
-  });
+  return results.map((s) => buildStoreView(s, env));
+}
+
+function programInfo(env) {
+  return {
+    userSharePercent: Math.round(userShare(env) * 100),
+    minPayoutCents: eurosToCents(env.MIN_PAYOUT_EUR, 1000),
+    referralBonusCents: eurosToCents(env.REFERRAL_BONUS_EUR, 0),
+    payoutWorkingDays: PAYOUT_WORKING_DAYS,
+  };
 }
 
 // ------------------------------------------------------------- endpoint utente
@@ -314,7 +452,8 @@ async function handleMe(request, env) {
     getBalance(env, user.id),
     listStores(env),
     env.DB.prepare(
-      `SELECT t.id, t.status, t.paid_to_publisher, t.user_amount_cents, t.transaction_date, s.name AS store_name
+      `SELECT t.id, t.status, t.paid_to_publisher, t.user_amount_cents, t.transaction_date, t.created_at,
+              s.name AS store_name, s.details AS store_details, s.awin_info AS store_info
          FROM transactions t LEFT JOIN stores s ON s.awin_mid = t.awin_mid
         WHERE t.user_id = ? ORDER BY COALESCE(t.transaction_date, t.created_at) DESC LIMIT 30`
     ).bind(user.id).all(),
@@ -328,18 +467,33 @@ async function handleMe(request, env) {
     isAdmin: isAdmin(env, user.id),
     balance: { ...balance, minPayoutCents: eurosToCents(env.MIN_PAYOUT_EUR, 1000) },
     referralBonusCents: eurosToCents(env.REFERRAL_BONUS_EUR, 0),
+    program: programInfo(env),
     stores,
-    transactions: txs.results.map((t) => ({
-      id: t.id,
-      store: t.store_name || 'Negozio',
-      amountCents: t.user_amount_cents,
-      date: t.transaction_date,
-      state: t.status === 'pending' ? 'pending'
+    transactions: txs.results.map((t) => {
+      const state = t.status === 'pending' ? 'pending'
         : t.status === 'approved' ? (t.paid_to_publisher ? 'available' : 'approved')
-        : 'cancelled',
-    })),
+        : 'cancelled';
+      return {
+        id: t.id,
+        store: t.store_name || 'Negozio',
+        amountCents: t.user_amount_cents,
+        date: t.transaction_date,
+        state,
+        expectedAvailableAt: state === 'pending' || state === 'approved' ? expectedDate(t) : null,
+      };
+    }),
     withdrawals: wds.results,
   });
+}
+
+// Data indicativa in cui il cashback diventa prelevabile: data dell'acquisto + tempo
+// medio di pagamento del negozio secondo Awin. E' una media, non una promessa.
+function expectedDate(t) {
+  const kpi = { ...((parseJson(t.store_details, {}) || {}).kpi || {}), ...((parseJson(t.store_info, null) || {}).kpi || {}) };
+  const days = toNumber(kpi.averagePaymentTime);
+  const base = Date.parse(String(t.transaction_date || t.created_at || '').replace(' ', 'T') + (/[zZ]|[+-]\d\d:?\d\d$/.test(String(t.transaction_date || '')) ? '' : 'Z'));
+  if (!days || !Number.isFinite(base)) return null;
+  return new Date(base + days * 86400 * 1000).toISOString().slice(0, 10);
 }
 
 async function handleLink(request, env) {
@@ -347,8 +501,10 @@ async function handleLink(request, env) {
   const store = await env.DB.prepare('SELECT * FROM stores WHERE id = ? AND active = 1').bind(String(body.storeId || '')).first();
   if (!store) throw new HttpError(404, 'store_not_found');
 
+  // Alcuni negozi (es. Italo) non accettano link a una pagina precisa: si apre la home.
+  const view = buildStoreView(store, env);
   let destination = null;
-  if (body.url) {
+  if (body.url && view.productLinks) {
     let parsed;
     try {
       parsed = new URL(String(body.url).trim());
@@ -473,6 +629,7 @@ async function handleAdminSetup(request, env) {
       activeStores: (await env.DB.prepare('SELECT COUNT(*) AS n FROM stores WHERE active = 1').first()).n,
     },
     lastSync: await readSetting(env, 'last_sync'),
+    lastProgramsSync: await readSetting(env, 'last_programs_sync'),
   });
 }
 
@@ -612,14 +769,85 @@ function awinDate(d) {
   return d.toISOString().slice(0, 19);
 }
 
-async function awinGet(env, path, params) {
+async function awinGetJson(env, path, params) {
   const base = env.AWIN_API_BASE || 'https://api.awin.com';
   const url = new URL(base + path);
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
   const res = await fetch(url.toString(), { headers: { authorization: `Bearer ${env.AWIN_API_TOKEN}`, accept: 'application/json' } });
   if (!res.ok) throw new Error(`Awin API ${res.status} su ${path}`);
-  const data = await res.json();
+  return res.json();
+}
+
+async function awinGet(env, path, params) {
+  const data = await awinGetJson(env, path, params);
   return Array.isArray(data) ? data : [];
+}
+
+// Catalogo automatico: un negozio compare nella Mini App solo quando Awin ti ha
+// approvato nel suo programma, e sparisce se l'iscrizione viene chiusa o sospesa.
+// Per i negozi attivi, una volta al giorno legge da Awin commissioni per categoria e tempi medi.
+export async function syncPrograms(env) {
+  if (!env.AWIN_API_TOKEN || !env.AWIN_PUBLISHER_ID) return { skipped: true };
+  const pub = String(env.AWIN_PUBLISHER_ID);
+
+  const joined = await awinGet(env, `/publishers/${pub}/programmes`, { relationship: 'joined' });
+  const joinedIds = new Set(joined.map((p) => Number(p.id)).filter(Boolean));
+  const { results: stores } = await env.DB.prepare('SELECT id, name, awin_mid, active, awin_info_at FROM stores').all();
+
+  const turnedOn = [];
+  const turnedOff = [];
+  if (String(env.AUTO_ACTIVATE_STORES || 'true') !== 'false') {
+    for (const s of stores) {
+      const want = joinedIds.has(Number(s.awin_mid)) ? 1 : 0;
+      if (want === s.active) continue;
+      await env.DB.prepare('UPDATE stores SET active = ? WHERE id = ?').bind(want, s.id).run();
+      s.active = want;
+      (want ? turnedOn : turnedOff).push(s.name);
+    }
+  }
+  if (turnedOn.length) await notifyAdmins(env, `Awin ti ha approvato: ${turnedOn.join(', ')}. Ora ${turnedOn.length === 1 ? 'è visibile' : 'sono visibili'} nella Mini App.`);
+  if (turnedOff.length) await notifyAdmins(env, `Iscrizione non più attiva su Awin: ${turnedOff.join(', ')}. ${turnedOff.length === 1 ? 'Il negozio è stato nascosto' : 'I negozi sono stati nascosti'} dalla Mini App.`);
+
+  const cutoff = Date.now() - STORE_REFRESH_HOURS * 3600 * 1000;
+  const due = stores
+    .filter((s) => s.active && (!s.awin_info_at || Date.parse(String(s.awin_info_at).replace(' ', 'T') + 'Z') < cutoff))
+    .slice(0, STORE_REFRESH_PER_RUN);
+  const refreshed = [];
+  const failed = [];
+  for (const s of due) {
+    try {
+      const params = { advertiserId: String(s.awin_mid) };
+      const groupsRes = await awinGetJson(env, `/publishers/${pub}/commissiongroups`, params);
+      const details = await awinGetJson(env, `/publishers/${pub}/programmedetails`, { ...params, relationship: 'joined' });
+      const groups = (groupsRes && Array.isArray(groupsRes.commissionGroups) ? groupsRes.commissionGroups : []).map((g) => ({
+        groupCode: g.groupCode || null,
+        groupName: g.groupName || g.groupCode || null,
+        type: g.type === 'fix' ? 'fix' : 'percentage',
+        percentage: g.percentage ?? null,
+        amount: g.amount ?? null,
+        currency: g.currency || null,
+      }));
+      const kpi = details && details.kpi ? {
+        averagePaymentTime: details.kpi.averagePaymentTime ?? null,
+        approvalPercentage: details.kpi.approvalPercentage ?? null,
+        validationDays: details.kpi.validationDays ?? null,
+      } : null;
+      const p = (details && details.programmeInfo) || {};
+      const tracking = Array.isArray(p.trackingTransparency) ? p.trackingTransparency : null;
+      const info = {
+        groups,
+        kpi,
+        appTracking: tracking ? tracking.includes('APP_TRACKING') : null,
+        deeplinkEnabled: typeof p.deeplinkEnabled === 'boolean' ? p.deeplinkEnabled : null,
+      };
+      await env.DB.prepare("UPDATE stores SET awin_info = ?, awin_info_at = datetime('now') WHERE id = ?")
+        .bind(JSON.stringify(info), s.id).run();
+      refreshed.push(s.id);
+    } catch (err) {
+      failed.push(`${s.id}: ${String(err && err.message ? err.message : err)}`);
+    }
+  }
+  return { joined: joinedIds.size, turnedOn, turnedOff, refreshed, failed };
 }
 
 export async function syncAwin(env) {
@@ -765,8 +993,9 @@ async function handleTelegramWebhook(request, env) {
   if (msg && msg.from && typeof msg.text === 'string' && msg.text.startsWith('/start')) {
     const payload = msg.text.split(/\s+/)[1] || null;
     await upsertUser(env, msg.from, payload);
+    const share = Math.round(userShare(env) * 100);
     await tgSend(env, msg.chat.id,
-      'Ciao! Con questo bot ricevi cashback sui tuoi acquisti online. Apri la Mini App, scegli il negozio e compra come al solito: una parte della commissione torna a te.',
+      `Ciao! Quando compri da un negozio partner aprendolo da qui, il negozio ci paga una commissione: il ${share}% lo giriamo a te come cashback, il resto copre il servizio.\n\nNella Mini App trovi per ogni negozio la percentuale esatta per categoria, i tempi medi di accredito e le regole per non perdere il cashback. Prelievo da ${formatEuro(eurosToCents(env.MIN_PAYOUT_EUR, 1000))} con PayPal o buono regalo.`,
       { reply_markup: { inline_keyboard: [[{ text: 'Apri Cashback Bot', web_app: { url: env.MINI_APP_URL } }]] } });
   }
   return new Response('OK');
