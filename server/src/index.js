@@ -31,7 +31,33 @@ const DECLINE_REASONS_IT = {
   min_order: "l'ordine non raggiunge l'importo minimo",
   not_fulfilled: "l'ordine non è stato evaso",
   credit_check: 'la verifica di pagamento non è andata a buon fine',
+  product_not_eligible: 'il prodotto acquistato non dà diritto alla commissione',
+  invalid_order: "il negozio non trova l'ordine o non lo considera valido",
+  program_closed: "il negozio chiude il programma di affiliazione prima di confermare l'ordine",
+  other: 'altri motivi previsti dai termini del negozio',
 };
+
+// Stato dei pagamenti del negozio verso Awin (il "semaforo" del profilo Awin).
+// Definizioni Awin: https://success.awin.com/s/article/What-does-the-Traffic-Light-in-the-Advertiser-Payment-Status-mean
+const PAYMENT_STATUS_IT = {
+  green: 'Il negozio paga Awin regolarmente (stato verde): la commissione ci arriva con il primo pagamento utile dopo la conferma.',
+  amber: 'Stato giallo su Awin: Awin ci paga la commissione solo dopo che il negozio ha pagato Awin, per cui i tempi possono allungarsi.',
+  red: 'Stato rosso su Awin: Awin paga solo quando il negozio salda tutte le fatture arretrate. I tempi sono incerti.',
+};
+const PAYMENT_LEVEL_IT = {
+  1: 'livello 1 di 4, rischio basso: paga con addebito diretto ma ha superato il limite di credito',
+  2: 'livello 2 di 4, rischio medio: ha superato il limite della sua assicurazione sul credito',
+  3: 'livello 3 di 4, rischio medio: ha fatture scadute con Awin',
+  4: 'livello 4 di 4, rischio alto: ha superato il limite di credito e ha fatture scadute',
+};
+
+function paymentStatusView(p) {
+  if (!p || !PAYMENT_STATUS_IT[p.color]) return null;
+  let text = PAYMENT_STATUS_IT[p.color];
+  const level = PAYMENT_LEVEL_IT[p.level];
+  if (p.color === 'amber' && level) text = text.replace('Stato giallo su Awin:', `Stato giallo su Awin (${level}):`);
+  return { color: p.color, level: toNumber(p.level), text, checkedAt: p.checkedAt || null };
+}
 
 class HttpError extends Error {
   constructor(status, code) {
@@ -413,11 +439,15 @@ export function buildStoreView(s, env) {
       validationDays: toNumber(kpi.validationDays),
       avgPaymentDays: toNumber(kpi.averagePaymentTime),
       approvalPercent: toNumber(kpi.approvalPercentage),
+      autoApproveDays: toNumber(details.autoApproveDays),
+      payment: paymentStatusView(details.paymentStatus),
     },
     rules: {
       cookieDays: toNumber(rules.cookieDays),
       appTracking: typeof rules.appTracking === 'boolean' ? rules.appTracking : null,
       commissionBase: rules.commissionBase || null,
+      vatIncluded: typeof rules.vatIncluded === 'boolean' ? rules.vatIncluded : null,
+      excludedProducts: rules.excludedProducts === true,
       declineReasons: (rules.declineReasons || []).map((k) => DECLINE_REASONS_IT[k] || k),
       notes: rules.notes || [],
     },

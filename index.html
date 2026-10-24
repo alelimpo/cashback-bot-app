@@ -364,6 +364,8 @@
             if (t.approvalPercent !== null && t.approvalPercent !== undefined) {
                 lines.push('In media il negozio conferma il ' + String(t.approvalPercent).replace('.', ',') + '% degli ordini. Gli altri vengono annullati: resi, ordini cancellati o non riconosciuti.');
             }
+            if (t.autoApproveDays) lines.push('Se il negozio non conferma né annulla l\'ordine, Awin lo approva da solo dopo ' + t.autoApproveDays + ' giorni.');
+            if (t.payment && t.payment.text) lines.push(t.payment.text + (t.payment.checkedAt ? ' (dato Awin del ' + day(t.payment.checkedAt) + ')' : ''));
             when.append(bullets(lines));
             body.append(when);
 
@@ -371,20 +373,24 @@
             const r = s.rules || {};
             const rules = section('Regole per non perdere il cashback');
             const ruleLines = ['Apri il negozio da qui subito prima di comprare. Se clicchi il link di un altro sito di sconti o cashback, l\'acquisto va a loro.'];
-            if (r.cookieDays) ruleLines.push('Completa l\'acquisto entro ' + r.cookieDays + ' giorni dal clic.');
+            if (r.cookieDays === 1) ruleLines.push('Completa l\'acquisto entro 24 ore dal clic.');
+            else if (r.cookieDays) ruleLines.push('Completa l\'acquisto entro ' + r.cookieDays + ' giorni dal clic.');
             if (r.appTracking === false) ruleLines.push('Paga nel browser che si apre, non nell\'app del negozio: gli acquisti dall\'app non vengono registrati.');
             else if (r.appTracking === true) ruleLines.push('Il negozio registra anche gli acquisti dalla sua app, se la apri dal nostro link.');
             else ruleLines.push('Per sicurezza completa l\'acquisto nel browser che si apre.');
             ruleLines.push('Accetta i cookie sul sito del negozio e non usare codici sconto trovati su altri siti.');
-            if (r.commissionBase) ruleLines.push('Il cashback si calcola sul ' + r.commissionBase + '.');
+            if (r.commissionBase) ruleLines.push('La percentuale si calcola sul ' + r.commissionBase + '.' + (r.vatIncluded === false ? ' Esempio: su un ordine da 122 € con IVA al 22% si calcola su 100 €.' : ''));
+            if (r.excludedProducts) ruleLines.push('Il negozio esclude alcuni prodotti dal cashback ma non pubblica l\'elenco: su quei prodotti il cashback è zero.');
             if (s.productLinks === false) ruleLines.push('Il link apre la pagina principale del negozio.');
             for (const n of r.notes || []) ruleLines.push(n);
             rules.append(bullets(ruleLines));
             body.append(rules);
 
             // Annullamenti
-            const cancel = section('Il cashback può essere annullato se');
-            cancel.append(bullets((r.declineReasons && r.declineReasons.length) ? r.declineReasons : ['restituisci o annulli l\'ordine', 'l\'ordine non viene pagato o evaso', 'l\'ultimo clic prima dell\'acquisto è di un altro sito']));
+            const declared = r.declineReasons && r.declineReasons.length;
+            const cancel = section(declared ? 'Il negozio può annullare il cashback se' : 'Il cashback può essere annullato se');
+            cancel.append(bullets(declared ? r.declineReasons : ['restituisci o annulli l\'ordine', 'l\'ordine non viene pagato o evaso', 'l\'ultimo clic prima dell\'acquisto è di un altro sito']));
+            cancel.append(el('p', 'text-xs text-slate-500 mt-2', declared ? 'Sono i motivi che il negozio indica nei suoi termini su Awin.' : 'Il negozio non ha pubblicato su Awin i motivi di annullamento: questi sono i più comuni.'));
             body.append(cancel);
 
             const src = 'Fonte: programma di affiliazione del negozio sul network Awin' + (s.updatedAt ? ', dati aggiornati al ' + day(s.updatedAt) : '') + '. Le medie descrivono il passato e non sono una garanzia.';

@@ -156,9 +156,24 @@ await step('trasparenza: quota, percentuali per categoria, tempi e regole dalla 
     ['Acquisti senza codice sconto', '12%', '7,2%'],
     ['Acquisti con codice sconto', '10%', '6%'],
   ]);
-  assert.deepEqual(douglas.timing, { validationDays: 32, avgPaymentDays: 91, approvalPercent: 87.03 });
+  assert.equal(douglas.timing.validationDays, 32);
+  assert.equal(douglas.timing.avgPaymentDays, 91);
+  assert.equal(douglas.timing.approvalPercent, 87.03);
+  assert.equal(douglas.timing.autoApproveDays, 120);
+  assert.equal(douglas.timing.payment.color, 'amber');
+  assert.ok(douglas.timing.payment.text.includes('livello 2 di 4'));
   assert.equal(douglas.rules.appTracking, false);
+  assert.equal(douglas.rules.cookieDays, 30);
+  assert.equal(douglas.rules.vatIncluded, false);
+  assert.equal(douglas.rules.commissionBase, 'prezzo senza IVA e senza spese di spedizione');
+  assert.equal(douglas.rules.excludedProducts, false);
+  assert.ok(douglas.rules.declineReasons.includes('il prodotto acquistato non dà diritto alla commissione'));
+  assert.ok(!douglas.rules.declineReasons.includes('altri motivi previsti dai termini del negozio'));
   assert.equal(douglas.source, 'awin_profile');
+  const vodafone = r.data.stores.find((s) => s.id === 'vodafone');
+  assert.equal(vodafone.rules.cookieDays, 21);
+  assert.equal(vodafone.rules.commissionBase, null); // importo fisso: niente base di calcolo
+  assert.equal(vodafone.rules.excludedProducts, true);
   const temu = r.data.stores.find((s) => s.id === 'temu');
   assert.equal(temu.cashbackLabel, 'fino al 6%');
   assert.ok(temu.rules.notes.some((n) => n.includes('primo ordine')));

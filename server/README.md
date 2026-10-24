@@ -37,7 +37,11 @@ commissioni per categoria, il tempo medio di pagamento, i giorni di convalida e 
 ordini approvati: la Mini App mostra questi numeri, già moltiplicati per la quota utente.
 
 Ogni negozio ha anche una scheda (`store-details.sql`) con le regole che Awin non fornisce via API:
-durata del cookie, motivi di annullamento, note. Serve anche da riserva finché l'API non risponde.
+durata del cookie, base di calcolo (IVA e spedizione), prodotti esclusi, motivi di annullamento,
+approvazione automatica, stato dei pagamenti del negozio verso Awin (il "semaforo"), note.
+Serve anche da riserva finché l'API non risponde. Queste voci vengono dal profilo e dai termini del
+programma su Awin, non dall'API: il semaforo in particolare cambia nel tempo, quindi ricontrollalo
+ogni mese circa e aggiorna la scheda (la Mini App mostra la data del controllo).
 
 Per aggiungere un negozio nuovo (dashboard Cloudflare > Storage e database > D1 > `cashback-bot` > Console):
 
