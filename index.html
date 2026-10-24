@@ -8,13 +8,14 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         body { -webkit-tap-highlight-color: transparent; }
+        .sheet { transition: transform .2s ease; }
     </style>
 </head>
-<body class="bg-slate-800 text-slate-800 font-sans antialiased h-screen flex flex-col justify-between">
-    
-    <div class="flex-1 bg-slate-100 rounded-b-3xl pb-6 shadow-lg overflow-hidden">
-        <!-- Header (Purple/Blue gradient) -->
-        <div class="bg-gradient-to-r from-blue-600 to-purple-600 p-6 text-white rounded-b-[2rem] shadow-md">
+<body class="bg-slate-800 text-slate-800 font-sans antialiased min-h-screen flex flex-col">
+
+    <div class="flex-1 bg-slate-100 rounded-b-3xl pb-6 shadow-lg">
+        <!-- Header -->
+        <div class="bg-gradient-to-r from-blue-600 to-purple-600 p-6 pb-10 text-white rounded-b-[2rem] shadow-md">
             <div class="flex justify-between items-center mb-2">
                 <h1 class="text-xl font-bold">Cashback Bot</h1>
                 <span class="bg-white/20 p-1.5 rounded-full">
@@ -24,113 +25,435 @@
             <p class="text-sm opacity-90">Ciao, <span id="userName" class="font-bold">Utente</span>! 👋</p>
         </div>
 
-        <!-- Balance Card -->
-        <div class="mx-5 -mt-6 bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
-            <p class="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-1">Saldo Disponibile</p>
+        <!-- Avviso fuori da Telegram -->
+        <div id="notInTelegram" class="hidden mx-5 -mt-6 mb-4 bg-amber-50 border border-amber-200 text-amber-800 text-sm p-4 rounded-2xl">
+            Apri questa pagina dal bot Telegram per ricevere il cashback sui tuoi acquisti.
+        </div>
+
+        <!-- Saldo -->
+        <div id="balanceCard" class="mx-5 -mt-6 bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
+            <p class="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-1">Saldo disponibile</p>
             <div class="flex justify-between items-end mb-4">
-                <p class="text-3xl font-bold text-green-500">€ 0,00</p>
-                <button class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold py-1.5 px-4 rounded-lg transition">Preleva</button>
+                <p id="availableAmount" class="text-3xl font-bold text-green-500">€ 0,00</p>
+                <button id="withdrawBtn" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold py-1.5 px-4 rounded-lg transition">Preleva</button>
             </div>
             <div class="flex justify-between text-sm pt-3 border-t border-slate-100">
                 <span class="text-slate-500">Cashback in attesa</span>
-                <span class="font-semibold text-slate-400">€ 0,00</span>
+                <span id="pendingAmount" class="font-semibold text-slate-400">€ 0,00</span>
+            </div>
+            <p id="withdrawNote" class="hidden text-xs text-blue-700 bg-blue-50 rounded-lg p-2 mt-3"></p>
+            <p id="minNote" class="text-xs text-slate-400 mt-3"></p>
+        </div>
+
+        <!-- Negozi -->
+        <div class="mx-5 mt-4 bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
+            <h2 class="font-bold text-slate-800 mb-1">Negozi con cashback</h2>
+            <p class="text-xs text-slate-500 mb-3">Apri sempre il negozio da qui prima di comprare: il cashback vale solo se l'ultimo clic prima dell'acquisto è il nostro.</p>
+
+            <input type="search" id="storeSearch" placeholder="Cerca un negozio" class="w-full px-4 py-2.5 mb-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+
+            <div id="storeList" class="divide-y divide-slate-100"></div>
+            <p id="storesEmpty" class="hidden text-sm text-slate-500 py-3">Stiamo attivando i primi negozi: torna a trovarci tra qualche giorno.</p>
+
+            <details class="mt-4">
+                <summary class="text-sm font-semibold text-blue-600 cursor-pointer">Hai già il link di un prodotto?</summary>
+                <div class="mt-3">
+                    <input type="url" id="productLink" placeholder="Incolla qui il link del prodotto" class="w-full px-4 py-2.5 mb-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <p id="productError" class="hidden text-xs text-red-500 mb-2"></p>
+                    <button id="productBtn" class="w-full bg-gradient-to-r from-purple-500 to-blue-600 text-white font-bold py-2.5 rounded-xl shadow-md hover:opacity-90 transition">Apri con cashback</button>
+                </div>
+            </details>
+        </div>
+
+        <!-- Movimenti -->
+        <div class="mx-5 mt-4 bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
+            <h2 class="font-bold text-slate-800 mb-3">I tuoi acquisti</h2>
+            <div id="txList" class="divide-y divide-slate-100"></div>
+            <p id="txEmpty" class="text-sm text-slate-500">Nessun acquisto ancora. Gli ordini compaiono qui di solito entro qualche ora.</p>
+        </div>
+
+        <!-- Inviti -->
+        <div id="inviteCard" class="hidden mx-5 mt-4 bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
+            <h2 class="font-bold text-slate-800 mb-1">Invita un amico</h2>
+            <p id="inviteText" class="text-xs text-slate-500 mb-3"></p>
+            <div class="flex items-center gap-2">
+                <input type="text" id="inviteLink" readonly class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 outline-none">
+                <button id="shareBtn" class="bg-blue-600 text-white text-sm font-bold py-2 px-3 rounded-xl">Condividi</button>
             </div>
         </div>
 
-        <!-- Link Generator -->
-        <div class="mx-5 mt-4 bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
-            <h2 class="font-bold text-slate-800 mb-1">Crea Link Affiliato</h2>
-            <p class="text-xs text-slate-500 mb-4">Incolla il link di un prodotto per generare il tuo link cashback tracciato.</p>
-            
-            <div class="relative mb-3">
-                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
-                </div>
-                <input type="url" id="originalLink" placeholder="Es. https://www.amazon.it/..." class="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
-            </div>
-            <p id="errorText" class="text-xs text-red-500 hidden mb-3">Inserisci un link valido che inizi con http:// o https://</p>
-            
-            <button id="generateBtn" onclick="generateLink()" class="w-full bg-gradient-to-r from-purple-500 to-blue-600 text-white font-bold py-3 rounded-xl shadow-md hover:opacity-90 transition flex justify-center items-center">
-                Genera Link Cashback
-            </button>
+        <!-- Admin -->
+        <div id="adminCard" class="hidden mx-5 mt-4 bg-white p-5 rounded-2xl shadow-sm border-2 border-purple-200">
+            <h2 class="font-bold text-slate-800 mb-1">Prelievi da pagare</h2>
+            <p class="text-xs text-slate-500 mb-3">Paga con il metodo scelto, poi segna la richiesta come pagata.</p>
+            <div id="adminList" class="divide-y divide-slate-100"></div>
+            <p id="adminEmpty" class="hidden text-sm text-slate-500">Nessuna richiesta in attesa.</p>
 
-            <!-- Result Box -->
-            <div id="resultBox" class="hidden mt-4 p-3 bg-green-50 border border-green-200 rounded-xl">
-                <p class="text-xs text-green-700 font-semibold mb-1">Link generato con successo!</p>
-                <div class="flex items-center gap-2">
-                    <input type="text" id="generatedLink" readonly class="w-full bg-transparent text-sm text-slate-700 outline-none" value="">
-                    <button onclick="copyLink(event)" class="bg-green-600 text-white p-2 rounded-lg hover:bg-green-700 transition">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
-                    </button>
+            <div class="mt-5 pt-4 border-t border-slate-100">
+                <h3 class="font-bold text-slate-800 mb-1">Configurazione</h3>
+                <p class="text-xs text-slate-500 mb-3">Collega il bot alla Mini App e mostra l'indirizzo per le notifiche Awin.</p>
+                <button id="setupBtn" class="w-full bg-purple-600 text-white text-sm font-bold py-2.5 rounded-xl">Configura e verifica</button>
+                <div id="setupResult" class="hidden mt-3 text-xs space-y-1"></div>
+                <div id="notifyBox" class="hidden mt-3">
+                    <p class="text-xs font-semibold text-slate-500 mb-1">Da incollare in Awin, Strumenti &gt; Notifiche transazione (metodo POST):</p>
+                    <div class="flex items-center gap-2">
+                        <input type="text" id="notifyUrl" readonly class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none">
+                        <button id="copyNotify" class="bg-slate-800 text-white text-xs font-bold py-2 px-3 rounded-xl">Copia</button>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Footer Aggiornato -->
+    <!-- Footer -->
     <div class="py-4 text-center text-xs text-slate-400 bg-slate-800">
         <div class="mb-2">
             <a href="termini.html" class="hover:text-blue-400 underline transition">Termini e Condizioni</a>
             <span class="mx-2">&bull;</span>
             <a href="privacy.html" class="hover:text-blue-400 underline transition">Privacy Policy</a>
         </div>
-        <p>Powered by Awin Network</p>
+        <p>I link verso i negozi sono link di affiliazione. Powered by Awin Network</p>
+        <p id="tgIdNote" class="hidden mt-2 text-slate-500"></p>
     </div>
 
-    <script>
-        let tg = window.Telegram.WebApp;
-        tg.expand();
+    <!-- Pannello prelievo -->
+    <div id="withdrawSheet" class="hidden fixed inset-0 bg-black/40 flex items-end z-40">
+        <div class="sheet w-full bg-white rounded-t-3xl p-6">
+            <h3 class="font-bold text-lg mb-1">Preleva il saldo</h3>
+            <p class="text-sm text-slate-500 mb-4">Importo: <span id="withdrawAmount" class="font-bold text-slate-800"></span></p>
+            <label class="text-xs font-semibold text-slate-500 uppercase">Come vuoi riceverlo</label>
+            <select id="withdrawMethod" class="w-full mt-1 mb-3 px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm">
+                <option value="buono_regalo">Buono regalo digitale (via email)</option>
+                <option value="paypal">PayPal</option>
+            </select>
+            <label class="text-xs font-semibold text-slate-500 uppercase">Email</label>
+            <input type="email" id="withdrawEmail" placeholder="nome@esempio.it" class="w-full mt-1 mb-2 px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm">
+            <p class="text-xs text-slate-400 mb-4">Paghiamo le richieste a mano, di solito entro 7 giorni lavorativi.</p>
+            <div class="flex gap-2">
+                <button id="withdrawCancel" class="flex-1 bg-slate-100 text-slate-700 font-bold py-3 rounded-xl">Annulla</button>
+                <button id="withdrawConfirm" class="flex-1 bg-blue-600 text-white font-bold py-3 rounded-xl">Conferma</button>
+            </div>
+        </div>
+    </div>
 
-        if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
-            document.getElementById('userName').innerText = tg.initDataUnsafe.user.first_name;
+    <!-- Messaggi -->
+    <div id="toast" class="hidden fixed left-4 right-4 bottom-6 z-50 text-white text-sm font-semibold px-4 py-3 rounded-xl shadow-lg"></div>
+
+    <script>
+        // Indirizzo del server su Cloudflare Workers.
+        const API_BASE = 'https://cashback-bot.alelimpo.workers.dev';
+
+        const tg = window.Telegram && window.Telegram.WebApp;
+        const initData = tg && tg.initData ? tg.initData : '';
+        if (tg) { tg.ready(); tg.expand(); }
+
+        const ERRORS = {
+            unauthorized: 'Sessione scaduta: chiudi e riapri la Mini App.',
+            store_not_found: 'Questo negozio non è più disponibile.',
+            url_not_for_store: 'Il link non appartiene a questo negozio.',
+            invalid_url: 'Il link non è valido.',
+            rate_limited: 'Troppe richieste: riprova tra un minuto.',
+            below_minimum: 'Non hai ancora raggiunto la soglia minima di prelievo.',
+            request_pending: 'Hai già una richiesta di prelievo in corso.',
+            invalid_destination: "Controlla l'indirizzo email.",
+            invalid_method: 'Scegli un metodo di pagamento.',
+            already_processed: 'Questa richiesta è già stata gestita.',
+            network: 'Connessione non riuscita: riprova.',
+        };
+        const STATES = {
+            pending: { label: 'In attesa del negozio', cls: 'text-amber-600' },
+            approved: { label: 'Approvato, in arrivo', cls: 'text-blue-600' },
+            available: { label: 'Disponibile', cls: 'text-green-600' },
+            cancelled: { label: 'Annullato', cls: 'text-slate-400 line-through' },
+        };
+
+        let state = { stores: [], balance: null };
+        const $ = (id) => document.getElementById(id);
+
+        function euro(cents) {
+            return (cents / 100).toLocaleString('it-IT', { style: 'currency', currency: 'EUR' });
+        }
+        function day(s) {
+            if (!s) return '';
+            const d = new Date(String(s).replace(' ', 'T'));
+            return isNaN(d) ? '' : d.toLocaleDateString('it-IT');
+        }
+        function el(tag, cls, text) {
+            const node = document.createElement(tag);
+            if (cls) node.className = cls;
+            if (text !== undefined && text !== null) node.textContent = text;
+            return node;
+        }
+        function haptic(type) {
+            if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred(type);
+        }
+        let toastTimer;
+        function toast(message, isError) {
+            const t = $('toast');
+            t.textContent = message;
+            t.className = 'fixed left-4 right-4 bottom-6 z-50 text-white text-sm font-semibold px-4 py-3 rounded-xl shadow-lg ' + (isError ? 'bg-red-600' : 'bg-slate-900');
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => t.classList.add('hidden'), 3500);
+            haptic(isError ? 'error' : 'success');
+        }
+        function errorText(err) {
+            return ERRORS[err && err.code] || 'Qualcosa non ha funzionato: riprova.';
+        }
+        function ask(message) {
+            return new Promise((resolve) => {
+                if (tg && tg.showConfirm) tg.showConfirm(message, resolve);
+                else resolve(window.confirm(message));
+            });
+        }
+        function openExternal(url) {
+            if (tg && tg.openLink) tg.openLink(url);
+            else window.open(url, '_blank', 'noopener');
         }
 
-        function generateLink() {
-            const input = document.getElementById('originalLink');
-            const error = document.getElementById('errorText');
-            const btn = document.getElementById('generateBtn');
-            const result = document.getElementById('resultBox');
-            const output = document.getElementById('generatedLink');
+        async function api(path, body) {
+            let res;
+            try {
+                res = await fetch(API_BASE + path, {
+                    method: body === undefined ? 'GET' : 'POST',
+                    headers: body === undefined ? {} : { 'content-type': 'application/json' },
+                    body: body === undefined ? undefined : JSON.stringify({ initData, ...body }),
+                });
+            } catch (e) {
+                const err = new Error('network'); err.code = 'network'; throw err;
+            }
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) { const err = new Error(data.error || 'error'); err.code = data.error; throw err; }
+            return data;
+        }
 
-            if (!input.value.trim() || !input.value.startsWith('http')) {
-                error.classList.remove('hidden');
-                input.classList.add('border-red-500', 'ring-red-500');
-                if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
-                return;
+        // ------------------------------------------------------------ disegno
+
+        function renderStores() {
+            const q = $('storeSearch').value.trim().toLowerCase();
+            const list = $('storeList');
+            list.replaceChildren();
+            const shown = state.stores.filter((s) => !q || s.name.toLowerCase().includes(q) || (s.category || '').toLowerCase().includes(q));
+            $('storesEmpty').classList.toggle('hidden', state.stores.length > 0);
+            for (const s of shown) {
+                const row = el('div', 'flex items-center justify-between gap-3 py-3');
+                const info = el('div', 'min-w-0');
+                info.append(el('p', 'font-semibold text-slate-800 truncate', s.name));
+                const sub = el('p', 'text-xs text-slate-500');
+                const rate = el('span', 'font-bold text-green-600', s.cashbackLabel);
+                sub.append(rate);
+                if (s.note) sub.append(document.createTextNode(' · ' + s.note));
+                info.append(sub);
+                const btn = el('button', 'shrink-0 bg-blue-600 text-white text-sm font-bold py-2 px-4 rounded-xl', 'Vai');
+                btn.addEventListener('click', () => openStore(s.id, null, btn));
+                row.append(info, btn);
+                list.append(row);
+            }
+        }
+
+        function renderMe(me) {
+            if (me.user.firstName) $('userName').textContent = me.user.firstName;
+            $('tgIdNote').textContent = 'Il tuo ID Telegram: ' + me.user.id;
+            $('tgIdNote').classList.remove('hidden');
+            state.balance = me.balance;
+            $('availableAmount').textContent = euro(me.balance.availableCents);
+            $('pendingAmount').textContent = euro(me.balance.pendingCents);
+            $('minNote').textContent = 'Puoi prelevare da ' + euro(me.balance.minPayoutCents) + ' in su. Il cashback diventa disponibile quando il negozio conferma l\'ordine e noi riceviamo la commissione: di solito servono alcune settimane.';
+
+            const open = (me.withdrawals || []).find((w) => w.status === 'requested');
+            $('withdrawNote').classList.toggle('hidden', !open);
+            if (open) $('withdrawNote').textContent = 'Richiesta di prelievo di ' + euro(open.amount_cents) + ' in lavorazione.';
+
+            state.stores = me.stores || [];
+            renderStores();
+
+            const tx = $('txList');
+            tx.replaceChildren();
+            $('txEmpty').classList.toggle('hidden', (me.transactions || []).length > 0);
+            for (const t of me.transactions || []) {
+                const st = STATES[t.state] || STATES.pending;
+                const row = el('div', 'flex justify-between items-center py-2.5');
+                const left = el('div');
+                left.append(el('p', 'text-sm font-semibold text-slate-800', t.store), el('p', 'text-xs ' + st.cls, st.label + (t.date ? ' · ' + day(t.date) : '')));
+                row.append(left, el('p', 'text-sm font-bold ' + (t.state === 'cancelled' ? 'text-slate-400 line-through' : 'text-slate-800'), euro(t.amountCents)));
+                tx.append(row);
             }
 
-            error.classList.add('hidden');
-            input.classList.remove('border-red-500', 'ring-red-500');
-            
-            btn.innerHTML = `<svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Generazione in corso...`;
-            
-            setTimeout(() => {
-                btn.innerHTML = 'Genera Link Cashback';
-                const mockSubId = Math.random().toString(36).substring(2, 10);
-                output.value = `https://www.awin1.com/cread.php?awinmid=1234&awinaffid=TUO_ID&clickref=${mockSubId}&ued=${encodeURIComponent(input.value)}`;
-                result.classList.remove('hidden');
-                if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
-            }, 1000);
+            if (me.user.refLink) {
+                $('inviteCard').classList.remove('hidden');
+                $('inviteLink').value = me.user.refLink;
+                $('inviteText').textContent = me.referralBonusCents > 0
+                    ? 'Ricevi ' + euro(me.referralBonusCents) + ' quando un amico invitato ottiene il suo primo cashback.'
+                    : 'Condividi il bot con chi fa acquisti online.';
+            }
+
+            if (me.isAdmin) loadAdmin();
         }
 
-        function copyLink(event) {
-            const copyText = document.getElementById('generatedLink');
-            copyText.select();
-            copyText.setSelectionRange(0, 99999);
-            navigator.clipboard.writeText(copyText.value);
-            
-            if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
-            
-            const btn = event.currentTarget;
-            const originalHtml = btn.innerHTML;
-            btn.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>`;
-            btn.classList.replace('bg-green-600', 'bg-green-800');
-            
-            setTimeout(() => {
-                btn.innerHTML = originalHtml;
-                btn.classList.replace('bg-green-800', 'bg-green-600');
-            }, 1500);
+        async function loadAdmin() {
+            $('adminCard').classList.remove('hidden');
+            const list = $('adminList');
+            list.replaceChildren();
+            let data;
+            try { data = await api('/api/admin/withdrawals', {}); } catch (e) { toast(errorText(e), true); return; }
+            $('adminEmpty').classList.toggle('hidden', data.withdrawals.length > 0);
+            for (const w of data.withdrawals) {
+                const row = el('div', 'py-3');
+                const who = w.username ? '@' + w.username : (w.first_name || w.user_id);
+                row.append(
+                    el('p', 'text-sm font-semibold', euro(w.amount_cents) + ' · ' + who),
+                    el('p', 'text-xs text-slate-500 break-all', (w.method === 'paypal' ? 'PayPal' : 'Buono regalo') + ' a ' + w.destination + ' · ' + day(w.created_at)),
+                );
+                const actions = el('div', 'flex gap-2 mt-2');
+                const paid = el('button', 'flex-1 bg-green-600 text-white text-xs font-bold py-2 rounded-lg', 'Segna pagato');
+                const reject = el('button', 'flex-1 bg-slate-200 text-slate-700 text-xs font-bold py-2 rounded-lg', 'Rifiuta');
+                paid.addEventListener('click', () => updateWithdrawal(w, 'paid'));
+                reject.addEventListener('click', () => updateWithdrawal(w, 'rejected'));
+                actions.append(paid, reject);
+                row.append(actions);
+                list.append(row);
+            }
         }
+
+        async function updateWithdrawal(w, status) {
+            const question = status === 'paid'
+                ? 'Hai già inviato ' + euro(w.amount_cents) + ' a ' + w.destination + '?'
+                : 'Rifiutare la richiesta? L\'importo torna nel saldo dell\'utente.';
+            if (!(await ask(question))) return;
+            try {
+                await api('/api/admin/withdrawals/update', { id: w.id, status });
+                toast(status === 'paid' ? 'Prelievo segnato come pagato.' : 'Richiesta rifiutata.');
+                load();
+            } catch (e) { toast(errorText(e), true); }
+        }
+
+        // ------------------------------------------------------------ azioni
+
+        async function openStore(storeId, url, btn) {
+            if (!initData) { toast('Apri la Mini App dal bot Telegram per ricevere il cashback.', true); return; }
+            const original = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = '...';
+            try {
+                const res = await api('/api/link', { storeId, url: url || undefined });
+                haptic('success');
+                openExternal(res.url);
+            } catch (e) {
+                toast(errorText(e), true);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = original;
+            }
+        }
+
+        function storeForUrl(raw) {
+            let host;
+            try {
+                const u = new URL(raw.trim());
+                if (!/^https?:$/.test(u.protocol)) return null;
+                host = u.hostname.toLowerCase();
+            } catch { return null; }
+            return state.stores.find((s) => s.domains.some((d) => host === d || host.endsWith('.' + d))) || null;
+        }
+
+        $('productBtn').addEventListener('click', () => {
+            const raw = $('productLink').value;
+            const err = $('productError');
+            const store = storeForUrl(raw);
+            if (!store) {
+                err.textContent = /^https?:\/\//i.test(raw.trim())
+                    ? 'Questo negozio non è ancora nel nostro catalogo.'
+                    : 'Incolla un link che inizi con https://';
+                err.classList.remove('hidden');
+                haptic('error');
+                return;
+            }
+            err.classList.add('hidden');
+            openStore(store.id, raw.trim(), $('productBtn'));
+        });
+
+        $('storeSearch').addEventListener('input', renderStores);
+
+        $('withdrawBtn').addEventListener('click', () => {
+            if (!state.balance) { toast('Apri la Mini App dal bot Telegram.', true); return; }
+            if (state.balance.availableCents < state.balance.minPayoutCents) {
+                toast('Puoi prelevare da ' + euro(state.balance.minPayoutCents) + ' in su.', true);
+                return;
+            }
+            $('withdrawAmount').textContent = euro(state.balance.availableCents);
+            $('withdrawSheet').classList.remove('hidden');
+        });
+        $('withdrawCancel').addEventListener('click', () => $('withdrawSheet').classList.add('hidden'));
+        $('withdrawConfirm').addEventListener('click', async () => {
+            const btn = $('withdrawConfirm');
+            btn.disabled = true;
+            try {
+                const res = await api('/api/withdraw', { method: $('withdrawMethod').value, destination: $('withdrawEmail').value.trim() });
+                $('withdrawSheet').classList.add('hidden');
+                toast('Richiesta di ' + euro(res.amountCents) + ' inviata.');
+                load();
+            } catch (e) {
+                toast(errorText(e), true);
+            } finally {
+                btn.disabled = false;
+            }
+        });
+
+        $('setupBtn').addEventListener('click', async () => {
+            const btn = $('setupBtn');
+            btn.disabled = true;
+            btn.textContent = 'Verifica in corso...';
+            try {
+                const r = await api('/api/admin/setup', {});
+                const out = $('setupResult');
+                out.replaceChildren();
+                const line = (ok, text) => out.append(el('p', ok ? 'text-green-700' : 'text-red-600', (ok ? '✓ ' : '✗ ') + text));
+                line(r.telegram.webhook.ok, 'Bot collegato al server' + (r.telegram.webhook.ok ? '' : ': ' + (r.telegram.webhook.description || 'errore')));
+                line(r.telegram.menuButton.ok, 'Pulsante menu del bot apre la Mini App' + (r.telegram.menuButton.ok ? '' : ': ' + (r.telegram.menuButton.description || 'errore')));
+                line(r.checks.awinApiToken, r.checks.awinApiToken ? 'Token API Awin impostato' : 'Manca il token API Awin');
+                line(!!r.checks.botUsername, r.checks.botUsername ? 'Link di invito attivi (@' + r.checks.botUsername + ')' : 'Manca BOT_USERNAME: link di invito spenti');
+                line(r.checks.activeStores > 0, 'Negozi attivi: ' + r.checks.activeStores);
+                if (r.lastSync) line(!r.lastSync.error, 'Ultima lettura da Awin: ' + day(r.lastSync.at) + (r.lastSync.error ? ' (errore: ' + r.lastSync.error + ')' : ''));
+                else line(false, 'Nessuna lettura da Awin ancora (parte ogni ora)');
+                out.classList.remove('hidden');
+                if (r.awinNotifyUrl) {
+                    $('notifyUrl').value = r.awinNotifyUrl;
+                    $('notifyBox').classList.remove('hidden');
+                }
+            } catch (e) {
+                toast(errorText(e), true);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Configura e verifica';
+            }
+        });
+        $('copyNotify').addEventListener('click', async () => {
+            try { await navigator.clipboard.writeText($('notifyUrl').value); toast('Indirizzo copiato.'); }
+            catch (e) { $('notifyUrl').select(); toast('Seleziona e copia il testo a mano.', true); }
+        });
+
+        $('shareBtn').addEventListener('click', () => {
+            const link = $('inviteLink').value;
+            const text = 'Uso questo bot per avere cashback sugli acquisti online. Provalo:';
+            const shareUrl = 'https://t.me/share/url?url=' + encodeURIComponent(link) + '&text=' + encodeURIComponent(text);
+            if (tg && tg.openTelegramLink) tg.openTelegramLink(shareUrl);
+            else window.open(shareUrl, '_blank', 'noopener');
+        });
+
+        async function load() {
+            if (!initData) {
+                $('notInTelegram').classList.remove('hidden');
+                $('balanceCard').classList.add('hidden');
+                try { state.stores = (await api('/api/stores')).stores; renderStores(); } catch (e) { /* server non raggiungibile */ }
+                return;
+            }
+            try {
+                renderMe(await api('/api/me', {}));
+            } catch (e) {
+                toast(errorText(e), true);
+            }
+        }
+
+        load();
     </script>
 </body>
 </html>
