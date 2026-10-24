@@ -1,0 +1,3157 @@
+[
+ {
+  "mid": 12374,
+  "id": "lastminute",
+  "name": "lastminute.com",
+  "category": "Viaggi",
+  "domains": "lastminute.com",
+  "sort": 100,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 145
+   },
+   "rules": {
+    "cookieDays": 30,
+    "appTracking": true,
+    "vatIncluded": true,
+    "commissionBase": "prezzo IVA inclusa, spedizione esclusa",
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed",
+     "other"
+    ],
+    "notes": [
+     "Il cashback non vale se usi altri sconti o promozioni, compresi buoni, codici sconto o offerte legate al metodo di pagamento."
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": null,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 9432,
+  "id": "volagratis",
+  "name": "Volagratis",
+  "category": "Viaggi",
+  "domains": "volagratis.com",
+  "sort": 101,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 143
+   },
+   "rules": {
+    "cookieDays": 15,
+    "appTracking": true,
+    "vatIncluded": false,
+    "commissionBase": "prezzo senza IVA e senza spese di spedizione",
+    "excludedProducts": true,
+    "declineReasons": [
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed"
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": null,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 9457,
+  "id": "edreams",
+  "name": "eDreams",
+  "category": "Viaggi",
+  "domains": "edreams.it",
+  "sort": 102,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 119
+   },
+   "rules": {
+    "cookieDays": 30,
+    "appTracking": false,
+    "vatIncluded": true,
+    "commissionBase": "prezzo totale, con IVA e spedizione",
+    "excludedProducts": true,
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed",
+     "other"
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": null,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 9461,
+  "id": "opodo",
+  "name": "Opodo",
+  "category": "Viaggi",
+  "domains": "opodo.it",
+  "sort": 103,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 120
+   },
+   "rules": {
+    "cookieDays": 60,
+    "appTracking": false,
+    "vatIncluded": false,
+    "commissionBase": "prezzo senza IVA e senza spese di spedizione",
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed",
+     "other"
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": 90,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 58151,
+  "id": "alpitour",
+  "name": "Alpitour",
+  "category": "Viaggi",
+  "domains": "alpitour.it",
+  "sort": 104,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 202
+   },
+   "rules": {
+    "cookieDays": 30,
+    "appTracking": false,
+    "vatIncluded": false,
+    "commissionBase": "prezzo senza IVA e senza spese di spedizione",
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed",
+     "other"
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": null,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 58149,
+  "id": "eden-viaggi",
+  "name": "Eden Viaggi",
+  "category": "Viaggi",
+  "domains": "edenviaggi.it",
+  "sort": 105,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 180
+   },
+   "rules": {
+    "cookieDays": 30,
+    "appTracking": false,
+    "vatIncluded": false,
+    "commissionBase": "prezzo senza IVA e senza spese di spedizione",
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed",
+     "other"
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": null,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 7629,
+  "id": "europcar",
+  "name": "Europcar",
+  "category": "Viaggi",
+  "domains": "europcar.it",
+  "sort": 106,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 116
+   },
+   "rules": {
+    "cookieDays": 30,
+    "appTracking": true,
+    "vatIncluded": false,
+    "commissionBase": "prezzo senza IVA e senza spese di spedizione",
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed"
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": null,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 12427,
+  "id": "tiqets",
+  "name": "Tiqets",
+  "category": "Viaggi",
+  "domains": "tiqets.com",
+  "sort": 107,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 78
+   },
+   "rules": {
+    "cookieDays": 30,
+    "appTracking": true,
+    "vatIncluded": false,
+    "commissionBase": "prezzo senza IVA, spedizione inclusa",
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed",
+     "other"
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": 370,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 13600,
+  "id": "viator",
+  "name": "Viator",
+  "category": "Viaggi",
+  "domains": "viator.com",
+  "sort": 108,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 59
+   },
+   "rules": {
+    "cookieDays": 30,
+    "appTracking": false,
+    "vatIncluded": true,
+    "commissionBase": "prezzo IVA inclusa, spedizione esclusa",
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed"
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": null,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 9551,
+  "id": "logitravel",
+  "name": "Logitravel",
+  "category": "Viaggi",
+  "domains": "logitravel.it",
+  "sort": 109,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 87
+   },
+   "rules": {
+    "cookieDays": 30,
+    "appTracking": false,
+    "vatIncluded": false,
+    "commissionBase": "prezzo senza IVA e senza spese di spedizione",
+    "excludedProducts": true,
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed",
+     "other"
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": null,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 114132,
+  "id": "tirrenia",
+  "name": "Tirrenia",
+  "category": "Viaggi",
+  "domains": "tirrenia.it,moby.it",
+  "sort": 110,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 147
+   },
+   "rules": {
+    "cookieDays": 15,
+    "appTracking": false,
+    "vatIncluded": false,
+    "commissionBase": "prezzo senza IVA e senza spese di spedizione",
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed",
+     "other"
+    ],
+    "notes": [
+     "La percentuale si calcola sul prezzo senza IVA, tasse e spese accessorie."
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": 90,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 30099,
+  "id": "dyson",
+  "name": "Dyson",
+  "category": "Elettronica",
+  "domains": "dyson.it",
+  "sort": 111,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 87
+   },
+   "rules": {
+    "cookieDays": 30,
+    "appTracking": false,
+    "vatIncluded": false,
+    "commissionBase": "prezzo senza IVA e senza spese di spedizione",
+    "excludedProducts": true,
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed",
+     "other"
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": 90,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 23676,
+  "id": "xiaomi",
+  "name": "Xiaomi",
+  "category": "Elettronica",
+  "domains": "mi.com",
+  "sort": 112,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 168
+   },
+   "rules": {
+    "cookieDays": 30,
+    "appTracking": false,
+    "vatIncluded": true,
+    "commissionBase": "prezzo IVA inclusa, spedizione esclusa",
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed"
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": null,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 116817,
+  "id": "sony",
+  "name": "Sony",
+  "category": "Elettronica",
+  "domains": "sony.it",
+  "sort": 113,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 110
+   },
+   "rules": {
+    "cookieDays": 30,
+    "appTracking": false,
+    "vatIncluded": false,
+    "commissionBase": "prezzo senza IVA e senza spese di spedizione",
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed",
+     "other"
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": null,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 15530,
+  "id": "acer",
+  "name": "Acer",
+  "category": "Elettronica",
+  "domains": "acer.com",
+  "sort": 114,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 61
+   },
+   "rules": {
+    "cookieDays": 30,
+    "appTracking": false,
+    "vatIncluded": false,
+    "commissionBase": "prezzo senza IVA e senza spese di spedizione",
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed"
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": 90,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 27926,
+  "id": "oppo",
+  "name": "Oppo",
+  "category": "Elettronica",
+  "domains": "oppostore.it,oppo.com",
+  "sort": 115,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 194
+   },
+   "rules": {
+    "cookieDays": 30,
+    "appTracking": false,
+    "vatIncluded": true,
+    "commissionBase": "prezzo totale, con IVA e spedizione",
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "min_order",
+     "not_fulfilled",
+     "invalid_order",
+     "program_closed"
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": 365,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 21287,
+  "id": "irobot",
+  "name": "iRobot",
+  "category": "Elettronica",
+  "domains": "irobot.it",
+  "sort": 116,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 169
+   },
+   "rules": {
+    "cookieDays": 30,
+    "appTracking": false,
+    "vatIncluded": true,
+    "commissionBase": "prezzo IVA inclusa, spedizione esclusa",
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed",
+     "other"
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": 80,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 74650,
+  "id": "pccomponentes",
+  "name": "PcComponentes",
+  "category": "Elettronica",
+  "domains": "pccomponentes.it",
+  "sort": 117,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 85
+   },
+   "rules": {
+    "cookieDays": 15,
+    "appTracking": false,
+    "vatIncluded": false,
+    "commissionBase": "prezzo senza IVA e senza spese di spedizione",
+    "excludedProducts": true,
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed"
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": 45,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 23030,
+  "id": "comet",
+  "name": "Comet",
+  "category": "Elettronica",
+  "domains": "comet.it",
+  "sort": 118,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 99
+   },
+   "rules": {
+    "cookieDays": 30,
+    "appTracking": false,
+    "vatIncluded": false,
+    "commissionBase": "prezzo senza IVA e senza spese di spedizione",
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed",
+     "other"
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": null,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 27516,
+  "id": "kitchenaid",
+  "name": "KitchenAid",
+  "category": "Casa",
+  "domains": "kitchenaid.it",
+  "sort": 119,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 85
+   },
+   "rules": {
+    "cookieDays": 30,
+    "appTracking": false,
+    "vatIncluded": true,
+    "commissionBase": "prezzo IVA inclusa, spedizione esclusa",
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed",
+     "other"
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": 60,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 23236,
+  "id": "delonghi",
+  "name": "De'Longhi",
+  "category": "Casa",
+  "domains": "delonghi.com",
+  "sort": 120,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 120
+   },
+   "rules": {
+    "cookieDays": 15,
+    "appTracking": false,
+    "vatIncluded": false,
+    "commissionBase": "prezzo senza IVA e senza spese di spedizione",
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed"
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": 90,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 22922,
+  "id": "kenwood",
+  "name": "Kenwood",
+  "category": "Casa",
+  "domains": "kenwoodworld.com",
+  "sort": 121,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 118
+   },
+   "rules": {
+    "cookieDays": 15,
+    "appTracking": false,
+    "vatIncluded": false,
+    "commissionBase": "prezzo senza IVA e senza spese di spedizione",
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed"
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": 45,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 24941,
+  "id": "nespresso",
+  "name": "Nespresso",
+  "category": "Casa",
+  "domains": "nespresso.com",
+  "sort": 122,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 178
+   },
+   "rules": {
+    "cookieDays": 30,
+    "appTracking": false,
+    "vatIncluded": false,
+    "commissionBase": "prezzo senza IVA e senza spese di spedizione",
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed",
+     "other"
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": 365,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 9598,
+  "id": "folletto",
+  "name": "Folletto",
+  "category": "Casa",
+  "domains": "vorwerk.com",
+  "sort": 123,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 84
+   },
+   "rules": {
+    "cookieDays": 30,
+    "appTracking": false,
+    "vatIncluded": false,
+    "commissionBase": "prezzo senza IVA e senza spese di spedizione",
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed",
+     "other"
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": 180,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 76424,
+  "id": "electrolux",
+  "name": "Electrolux",
+  "category": "Casa",
+  "domains": "electrolux.it",
+  "sort": 124,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 118
+   },
+   "rules": {
+    "cookieDays": 30,
+    "appTracking": false,
+    "vatIncluded": false,
+    "commissionBase": "prezzo senza IVA e senza spese di spedizione",
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed",
+     "other"
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": 50,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 57677,
+  "id": "vidaxl",
+  "name": "vidaXL",
+  "category": "Casa",
+  "domains": "vidaxl.it",
+  "sort": 125,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 66
+   },
+   "rules": {
+    "cookieDays": 30,
+    "appTracking": false,
+    "vatIncluded": false,
+    "commissionBase": "prezzo senza IVA e senza spese di spedizione",
+    "excludedProducts": true,
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed",
+     "other"
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": 60,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 18552,
+  "id": "aosom",
+  "name": "Aosom",
+  "category": "Casa",
+  "domains": "aosom.it",
+  "sort": 126,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 77
+   },
+   "rules": {
+    "cookieDays": 30,
+    "appTracking": false,
+    "vatIncluded": false,
+    "commissionBase": "prezzo senza IVA e senza spese di spedizione",
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed",
+     "other"
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": 60,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 21198,
+  "id": "emma",
+  "name": "Emma Materasso",
+  "category": "Casa",
+  "domains": "emma-materasso.it",
+  "sort": 127,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 168
+   },
+   "rules": {
+    "cookieDays": 30,
+    "appTracking": false,
+    "vatIncluded": false,
+    "commissionBase": "prezzo senza IVA e senza spese di spedizione",
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed"
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": 160,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 17198,
+  "id": "kasanova",
+  "name": "Kasanova",
+  "category": "Casa",
+  "domains": "kasanova.com",
+  "sort": 128,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 212
+   },
+   "rules": {
+    "cookieDays": 30,
+    "appTracking": false,
+    "vatIncluded": false,
+    "commissionBase": "prezzo senza IVA e senza spese di spedizione",
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed",
+     "other"
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": null,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 118433,
+  "id": "vevor",
+  "name": "Vevor",
+  "category": "Casa",
+  "domains": "vevor.it",
+  "sort": 129,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 73
+   },
+   "rules": {
+    "cookieDays": 30,
+    "appTracking": false,
+    "vatIncluded": false,
+    "commissionBase": "prezzo senza IVA e senza spese di spedizione",
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed",
+     "other"
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": 30,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 9788,
+  "id": "michael-kors",
+  "name": "Michael Kors",
+  "category": "Moda",
+  "domains": "michaelkors.it",
+  "sort": 130,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 148
+   },
+   "rules": {
+    "cookieDays": 30,
+    "appTracking": false,
+    "vatIncluded": false,
+    "commissionBase": "prezzo senza IVA e senza spese di spedizione",
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed",
+     "other"
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": null,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 119179,
+  "id": "benetton",
+  "name": "Benetton",
+  "category": "Moda",
+  "domains": "benetton.com",
+  "sort": 131,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 143
+   },
+   "rules": {
+    "cookieDays": 30,
+    "appTracking": false,
+    "vatIncluded": false,
+    "commissionBase": "prezzo senza IVA e senza spese di spedizione",
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed"
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": 45,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 37020,
+  "id": "ovs",
+  "name": "OVS",
+  "category": "Moda",
+  "domains": "ovs.it",
+  "sort": 132,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 138
+   },
+   "rules": {
+    "cookieDays": 30,
+    "appTracking": false,
+    "vatIncluded": false,
+    "commissionBase": "prezzo senza IVA e senza spese di spedizione",
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed"
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": 60,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 112212,
+  "id": "answear",
+  "name": "Answear",
+  "category": "Moda",
+  "domains": "answear.it",
+  "sort": 133,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 120
+   },
+   "rules": {
+    "cookieDays": 30,
+    "appTracking": false,
+    "vatIncluded": false,
+    "commissionBase": "prezzo senza IVA e senza spese di spedizione",
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed",
+     "other"
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": 60,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 98751,
+  "id": "replay",
+  "name": "Replay",
+  "category": "Moda",
+  "domains": "replayjeans.com",
+  "sort": 134,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 170
+   },
+   "rules": {
+    "cookieDays": 30,
+    "appTracking": false,
+    "vatIncluded": false,
+    "commissionBase": "prezzo senza IVA e senza spese di spedizione",
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed",
+     "other"
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": 60,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 9485,
+  "id": "zalando-prive",
+  "name": "Privé by Zalando",
+  "category": "Moda",
+  "domains": "zalando-prive.it",
+  "sort": 135,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 92
+   },
+   "rules": {
+    "cookieDays": 30,
+    "appTracking": true,
+    "vatIncluded": false,
+    "commissionBase": "prezzo senza IVA e senza spese di spedizione",
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed",
+     "other"
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": null,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 25235,
+  "id": "spartoo",
+  "name": "Spartoo",
+  "category": "Moda",
+  "domains": "spartoo.it",
+  "sort": 136,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 119
+   },
+   "rules": {
+    "cookieDays": 30,
+    "appTracking": false,
+    "declineReasons": [],
+    "notes": [
+     "Il negozio non indica se la percentuale si calcola con o senza IVA: per prudenza fai il conto sul prezzo senza IVA e senza spedizione."
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": 60,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 116699,
+  "id": "nerogiardini",
+  "name": "NeroGiardini",
+  "category": "Moda",
+  "domains": "nerogiardini.it",
+  "sort": 137,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 90
+   },
+   "rules": {
+    "cookieDays": 30,
+    "appTracking": false,
+    "vatIncluded": false,
+    "commissionBase": "prezzo senza IVA e senza spese di spedizione",
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed",
+     "other"
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": 120,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 19689,
+  "id": "hawkers",
+  "name": "Hawkers",
+  "category": "Moda",
+  "domains": "hawkersco.com",
+  "sort": 138,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 90
+   },
+   "rules": {
+    "cookieDays": 30,
+    "appTracking": false,
+    "vatIncluded": false,
+    "commissionBase": "prezzo senza IVA e senza spese di spedizione",
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed"
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": null,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 66258,
+  "id": "pandora",
+  "name": "Pandora",
+  "category": "Gioielli e accessori",
+  "domains": "pandora.net",
+  "sort": 139,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 197
+   },
+   "rules": {
+    "cookieDays": 30,
+    "appTracking": false,
+    "vatIncluded": false,
+    "commissionBase": "prezzo senza IVA e senza spese di spedizione",
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed"
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": 365,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 26165,
+  "id": "daniel-wellington",
+  "name": "Daniel Wellington",
+  "category": "Gioielli e accessori",
+  "domains": "danielwellington.com",
+  "sort": 140,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 107
+   },
+   "rules": {
+    "cookieDays": 30,
+    "appTracking": false,
+    "vatIncluded": true,
+    "commissionBase": "prezzo IVA inclusa, spedizione esclusa",
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed",
+     "other"
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": 60,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 31481,
+  "id": "stroili",
+  "name": "Stroili",
+  "category": "Gioielli e accessori",
+  "domains": "stroilioro.com",
+  "sort": 141,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 119
+   },
+   "rules": {
+    "cookieDays": 30,
+    "appTracking": false,
+    "declineReasons": [],
+    "notes": [
+     "Il negozio non indica se la percentuale si calcola con o senza IVA: per prudenza fai il conto sul prezzo senza IVA e senza spedizione."
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": 365,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 43333,
+  "id": "thun",
+  "name": "Thun",
+  "category": "Gioielli e accessori",
+  "domains": "thun.com",
+  "sort": 142,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 116
+   },
+   "rules": {
+    "cookieDays": 30,
+    "appTracking": false,
+    "vatIncluded": false,
+    "commissionBase": "prezzo senza IVA e senza spese di spedizione",
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed",
+     "other"
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": 635,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 23410,
+  "id": "foot-locker",
+  "name": "Foot Locker",
+  "category": "Sport",
+  "domains": "footlocker.it",
+  "sort": 143,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 88
+   },
+   "rules": {
+    "cookieDays": 30,
+    "appTracking": false,
+    "vatIncluded": false,
+    "commissionBase": "prezzo senza IVA e senza spese di spedizione",
+    "excludedProducts": true,
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed",
+     "other"
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": 60,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 9690,
+  "id": "jd-sports",
+  "name": "JD Sports",
+  "category": "Sport",
+  "domains": "jdsports.it",
+  "sort": 144,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 79
+   },
+   "rules": {
+    "cookieDays": 30,
+    "appTracking": false,
+    "vatIncluded": false,
+    "commissionBase": "prezzo senza IVA e senza spese di spedizione",
+    "excludedProducts": true,
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed",
+     "other"
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": null,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 16259,
+  "id": "cisalfa",
+  "name": "Cisalfa Sport",
+  "category": "Sport",
+  "domains": "cisalfasport.it",
+  "sort": 145,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 138
+   },
+   "rules": {
+    "cookieDays": 30,
+    "appTracking": true,
+    "vatIncluded": false,
+    "commissionBase": "prezzo senza IVA e senza spese di spedizione",
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed",
+     "other"
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": 200,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 76936,
+  "id": "deporvillage",
+  "name": "Deporvillage",
+  "category": "Sport",
+  "domains": "deporvillage.it",
+  "sort": 146,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 75
+   },
+   "rules": {
+    "cookieDays": 30,
+    "appTracking": false,
+    "vatIncluded": true,
+    "commissionBase": "prezzo IVA inclusa, spedizione esclusa",
+    "excludedProducts": true,
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed",
+     "other"
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": 60,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 9496,
+  "id": "lookfantastic",
+  "name": "Lookfantastic",
+  "category": "Bellezza",
+  "domains": "lookfantastic.it",
+  "sort": 147,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 51
+   },
+   "rules": {
+    "cookieDays": 30,
+    "appTracking": true,
+    "vatIncluded": true,
+    "commissionBase": "prezzo IVA inclusa, spedizione esclusa",
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed"
+    ]
+   },
+   "paymentStatus": {
+    "color": "green",
+    "level": null,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": null,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 18143,
+  "id": "lancome",
+  "name": "Lancôme",
+  "category": "Bellezza",
+  "domains": "lancome.it",
+  "sort": 148,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 148
+   },
+   "rules": {
+    "cookieDays": 30,
+    "appTracking": false,
+    "vatIncluded": false,
+    "commissionBase": "prezzo senza IVA e senza spese di spedizione",
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed",
+     "other"
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": 120,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 22230,
+  "id": "kiehls",
+  "name": "Kiehl's",
+  "category": "Bellezza",
+  "domains": "kiehls.it",
+  "sort": 149,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 153
+   },
+   "rules": {
+    "cookieDays": 30,
+    "appTracking": false,
+    "vatIncluded": false,
+    "commissionBase": "prezzo senza IVA e senza spese di spedizione",
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed",
+     "other"
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": 365,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 16713,
+  "id": "pinalli",
+  "name": "Pinalli",
+  "category": "Bellezza",
+  "domains": "pinalli.it",
+  "sort": 150,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 165
+   },
+   "rules": {
+    "cookieDays": 30,
+    "appTracking": false,
+    "vatIncluded": false,
+    "commissionBase": "prezzo senza IVA e senza spese di spedizione",
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed"
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": 365,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 12250,
+  "id": "bottega-verde",
+  "name": "Bottega Verde",
+  "category": "Bellezza",
+  "domains": "bottegaverde.it",
+  "sort": 151,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 126
+   },
+   "rules": {
+    "cookieDays": 30,
+    "appTracking": false,
+    "vatIncluded": false,
+    "commissionBase": "prezzo senza IVA e senza spese di spedizione",
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed",
+     "other"
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": 60,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 19318,
+  "id": "avon",
+  "name": "Avon",
+  "category": "Bellezza",
+  "domains": "avon.it",
+  "sort": 152,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 168
+   },
+   "rules": {
+    "cookieDays": 30,
+    "appTracking": false,
+    "vatIncluded": false,
+    "commissionBase": "prezzo senza IVA e senza spese di spedizione",
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed",
+     "other"
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": 90,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 9594,
+  "id": "efarma",
+  "name": "eFarma",
+  "category": "Salute",
+  "domains": "efarma.com",
+  "sort": 153,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 119
+   },
+   "rules": {
+    "cookieDays": 30,
+    "appTracking": false,
+    "vatIncluded": false,
+    "commissionBase": "prezzo senza IVA e senza spese di spedizione",
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed",
+     "other"
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": 60,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 15774,
+  "id": "redcare",
+  "name": "Redcare",
+  "category": "Salute",
+  "domains": "redcare.it",
+  "sort": 154,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 99
+   },
+   "rules": {
+    "cookieDays": 30,
+    "appTracking": true,
+    "vatIncluded": false,
+    "commissionBase": "prezzo senza IVA e senza spese di spedizione",
+    "excludedProducts": true,
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed"
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": 90,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 84285,
+  "id": "1000farmacie",
+  "name": "1000Farmacie",
+  "category": "Salute",
+  "domains": "1000farmacie.it",
+  "sort": 155,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 66
+   },
+   "rules": {
+    "cookieDays": 4,
+    "appTracking": false,
+    "declineReasons": [],
+    "notes": [
+     "Il clic vale solo 4 giorni: compra subito dopo averlo aperto da qui.",
+     "Il negozio non indica se la percentuale si calcola con o senza IVA: per prudenza fai il conto sul prezzo senza IVA e senza spedizione."
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": 21,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 7614,
+  "id": "myprotein",
+  "name": "Myprotein",
+  "category": "Salute",
+  "domains": "myprotein.it",
+  "sort": 156,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 55
+   },
+   "rules": {
+    "cookieDays": 30,
+    "appTracking": true,
+    "vatIncluded": true,
+    "commissionBase": "prezzo totale, con IVA e spedizione",
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed"
+    ]
+   },
+   "paymentStatus": {
+    "color": "green",
+    "level": null,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": null,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 22111,
+  "id": "myvitamins",
+  "name": "Myvitamins",
+  "category": "Salute",
+  "domains": "myvitamins.it",
+  "sort": 157,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 53
+   },
+   "rules": {
+    "cookieDays": 30,
+    "appTracking": false,
+    "vatIncluded": true,
+    "commissionBase": "prezzo IVA inclusa, spedizione esclusa",
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed",
+     "other"
+    ]
+   },
+   "paymentStatus": {
+    "color": "green",
+    "level": null,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": null,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 9467,
+  "id": "bulk",
+  "name": "Bulk",
+  "category": "Salute",
+  "domains": "bulk.com",
+  "sort": 158,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 35
+   },
+   "rules": {
+    "cookieDays": 30,
+    "appTracking": false,
+    "vatIncluded": false,
+    "commissionBase": "prezzo senza IVA e senza spese di spedizione",
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed",
+     "other"
+    ]
+   },
+   "paymentStatus": {
+    "color": "green",
+    "level": null,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": null,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 76734,
+  "id": "iherb",
+  "name": "iHerb",
+  "category": "Salute",
+  "domains": "iherb.com",
+  "sort": 159,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 111
+   },
+   "rules": {
+    "cookieDays": 7,
+    "appTracking": true,
+    "vatIncluded": true,
+    "commissionBase": "prezzo IVA inclusa, spedizione esclusa",
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed",
+     "other"
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": 32,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 9500,
+  "id": "zooplus",
+  "name": "zooplus",
+  "category": "Animali",
+  "domains": "zooplus.it",
+  "sort": 160,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 68
+   },
+   "rules": {
+    "cookieDays": 30,
+    "appTracking": false,
+    "vatIncluded": false,
+    "commissionBase": "prezzo senza IVA e senza spese di spedizione",
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "invalid_order",
+     "program_closed"
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": 28,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 21209,
+  "id": "purinashop",
+  "name": "Purina Shop",
+  "category": "Animali",
+  "domains": "purinashop.it",
+  "sort": 161,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 164
+   },
+   "rules": {
+    "cookieDays": 30,
+    "appTracking": false,
+    "vatIncluded": false,
+    "commissionBase": "prezzo senza IVA e senza spese di spedizione",
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "invalid_order",
+     "program_closed"
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": 90,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 76986,
+  "id": "cortilia",
+  "name": "Cortilia",
+  "category": "Cibo e vino",
+  "domains": "cortilia.it",
+  "sort": 162,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 107
+   },
+   "rules": {
+    "cookieDays": 30,
+    "appTracking": true,
+    "vatIncluded": false,
+    "commissionBase": "prezzo senza IVA e senza spese di spedizione",
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed"
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": 50,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 25367,
+  "id": "vino-com",
+  "name": "Vino.com",
+  "category": "Cibo e vino",
+  "domains": "vino.com",
+  "sort": 163,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 69
+   },
+   "rules": {
+    "cookieDays": 30,
+    "appTracking": false,
+    "vatIncluded": true,
+    "commissionBase": "prezzo totale, con IVA e spedizione",
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed",
+     "other"
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 1,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": 60,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 20613,
+  "id": "svinando",
+  "name": "Svinando",
+  "category": "Cibo e vino",
+  "domains": "svinando.com",
+  "sort": 164,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 75
+   },
+   "rules": {
+    "cookieDays": 15,
+    "appTracking": false,
+    "vatIncluded": true,
+    "commissionBase": "prezzo totale, con IVA e spedizione",
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed",
+     "other"
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": 45,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 100071,
+  "id": "venchi",
+  "name": "Venchi",
+  "category": "Cibo e vino",
+  "domains": "venchi.com",
+  "sort": 165,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 57
+   },
+   "rules": {
+    "cookieDays": 30,
+    "appTracking": false,
+    "vatIncluded": false,
+    "commissionBase": "prezzo senza IVA e senza spese di spedizione",
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed",
+     "other"
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": 30,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 9647,
+  "id": "feltrinelli",
+  "name": "laFeltrinelli",
+  "category": "Libri e biglietti",
+  "domains": "lafeltrinelli.com,lafeltrinelli.it",
+  "sort": 166,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 140
+   },
+   "rules": {
+    "cookieDays": 60,
+    "appTracking": false,
+    "vatIncluded": false,
+    "commissionBase": "prezzo senza IVA e senza spese di spedizione",
+    "excludedProducts": true,
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed",
+     "other"
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": null,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 9777,
+  "id": "ibs",
+  "name": "IBS",
+  "category": "Libri e biglietti",
+  "domains": "ibs.it",
+  "sort": 167,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 118
+   },
+   "rules": {
+    "cookieDays": 30,
+    "appTracking": false,
+    "vatIncluded": false,
+    "commissionBase": "prezzo senza IVA e senza spese di spedizione",
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed"
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": null,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 9423,
+  "id": "mondadori",
+  "name": "Mondadori Store",
+  "category": "Libri e biglietti",
+  "domains": "mondadoristore.it",
+  "sort": 168,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 125
+   },
+   "rules": {
+    "cookieDays": 30,
+    "appTracking": false,
+    "vatIncluded": false,
+    "commissionBase": "prezzo senza IVA e senza spese di spedizione",
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed",
+     "other"
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": 180,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 9567,
+  "id": "ticketone",
+  "name": "TicketOne",
+  "category": "Libri e biglietti",
+  "domains": "ticketone.it",
+  "sort": 169,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 90
+   },
+   "rules": {
+    "cookieDays": 15,
+    "appTracking": false,
+    "vatIncluded": false,
+    "commissionBase": "prezzo senza IVA e senza spese di spedizione",
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed"
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": 365,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 117591,
+  "id": "groupon",
+  "name": "Groupon",
+  "category": "Libri e biglietti",
+  "domains": "groupon.it",
+  "sort": 170,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 104
+   },
+   "rules": {
+    "cookieDays": 7,
+    "appTracking": false,
+    "vatIncluded": false,
+    "commissionBase": "prezzo senza IVA e senza spese di spedizione",
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed",
+     "other"
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": 45,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 27760,
+  "id": "windtre",
+  "name": "WindTre",
+  "category": "Telefonia",
+  "domains": "windtre.it",
+  "sort": 171,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 181
+   },
+   "rules": {
+    "cookieDays": 30,
+    "appTracking": false,
+    "vatIncluded": true,
+    "commissionBase": "prezzo IVA inclusa, spedizione esclusa",
+    "excludedProducts": true,
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed",
+     "other"
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": null,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 21082,
+  "id": "very-mobile",
+  "name": "Very Mobile",
+  "category": "Telefonia",
+  "domains": "verymobile.it",
+  "sort": 172,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 74
+   },
+   "rules": {
+    "cookieDays": 30,
+    "appTracking": false,
+    "declineReasons": [],
+    "notes": [
+     "Il negozio non indica se la percentuale si calcola con o senza IVA: per prudenza fai il conto sul prezzo senza IVA e senza spedizione."
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 3,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": 90,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 11992,
+  "id": "kena-mobile",
+  "name": "Kena Mobile",
+  "category": "Telefonia",
+  "domains": "kenamobile.it",
+  "sort": 173,
+  "details": {
+   "kpi": {},
+   "rules": {
+    "cookieDays": 30,
+    "appTracking": false,
+    "vatIncluded": false,
+    "commissionBase": "prezzo senza IVA e senza spese di spedizione",
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed"
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": 635,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 9659,
+  "id": "babbel",
+  "name": "Babbel",
+  "category": "Servizi",
+  "domains": "babbel.com",
+  "sort": 174,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 82
+   },
+   "rules": {
+    "cookieDays": 30,
+    "appTracking": false,
+    "vatIncluded": false,
+    "commissionBase": "prezzo senza IVA e senza spese di spedizione",
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed"
+    ]
+   },
+   "paymentStatus": {
+    "color": "green",
+    "level": null,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": 60,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 54227,
+  "id": "interflora",
+  "name": "Interflora",
+  "category": "Servizi",
+  "domains": "interflora.it",
+  "sort": 175,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 73
+   },
+   "rules": {
+    "cookieDays": 30,
+    "appTracking": false,
+    "vatIncluded": false,
+    "commissionBase": "prezzo senza IVA e senza spese di spedizione",
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed",
+     "other"
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": 120,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 9658,
+  "id": "autodoc",
+  "name": "Autodoc",
+  "category": "Auto e moto",
+  "domains": "auto-doc.it",
+  "sort": 176,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 198
+   },
+   "rules": {
+    "cookieDays": 30,
+    "appTracking": false,
+    "vatIncluded": false,
+    "commissionBase": "prezzo senza IVA e senza spese di spedizione",
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed",
+     "other"
+    ]
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": 90,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 9580,
+  "id": "gommadiretto",
+  "name": "Gommadiretto",
+  "category": "Auto e moto",
+  "domains": "gommadiretto.it",
+  "sort": 177,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 74
+   },
+   "rules": {
+    "cookieDays": 30,
+    "appTracking": false,
+    "vatIncluded": false,
+    "commissionBase": "prezzo senza IVA e senza spese di spedizione",
+    "declineReasons": [
+     "returned",
+     "partially_returned",
+     "cancelled",
+     "not_new_customer",
+     "coupon",
+     "other_partner",
+     "product_not_eligible",
+     "min_order",
+     "not_fulfilled",
+     "credit_check",
+     "invalid_order",
+     "program_closed",
+     "other"
+    ]
+   },
+   "paymentStatus": {
+    "color": "green",
+    "level": null,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": 60,
+   "checkedAt": "2026-10-24"
+  }
+ },
+ {
+  "mid": 77880,
+  "id": "norauto",
+  "name": "Norauto",
+  "category": "Auto e moto",
+  "domains": "norauto.it",
+  "sort": 178,
+  "details": {
+   "kpi": {
+    "averagePaymentTime": 66
+   },
+   "rules": {
+    "cookieDays": 30,
+    "appTracking": false,
+    "vatIncluded": false,
+    "commissionBase": "prezzo senza IVA e senza spese di spedizione",
+    "declineReasons": []
+   },
+   "paymentStatus": {
+    "color": "amber",
+    "level": 2,
+    "checkedAt": "2026-10-24"
+   },
+   "autoApproveDays": 90,
+   "checkedAt": "2026-10-24"
+  }
+ }
+]

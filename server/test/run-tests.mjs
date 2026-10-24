@@ -508,11 +508,25 @@ await step('configurazione admin: webhook, pulsante menu e indirizzo Awin', asyn
 
 await step('cron: negozi accesi e spenti da soli in base alle iscrizioni Awin', async () => {
   const before = (await messages()).length;
-  await setPrograms({ ...PROGRAMS, joined: [9449, 9418, 10139, 9685] }); // approvati Unieuro e Italo, Temu chiuso
+  // Approvati Unieuro, Italo e zooplus (seconda ondata), Temu chiuso; Ikea approvato ma non nel catalogo.
+  await setPrograms({
+    ...PROGRAMS,
+    joined: [9449, 9418, 10139, 9685, 9500, 88888],
+    info: { 88888: { name: 'Ikea IT', primarySector: 'Home & Garden', displayUrl: 'https://www.ikea.com/it/it/', validDomains: [{ domain: '*.ikea.com' }] } },
+    groups: { ...PROGRAMS.groups, 88888: [{ groupId: 9, groupCode: 'DEFAULT', groupName: 'Default', type: 'percentage', percentage: 3 }] },
+  });
   await runCron();
   const r = await call('/api/me', { initData: initData(bruno) });
   const ids = r.data.stores.map((s) => s.id).sort();
-  assert.deepEqual(ids, ['douglas', 'italo', 'unieuro', 'vodafone']);
+  // zooplus e' attivo ma senza commissioni lette da Awin: resta nascosto finche' non arrivano.
+  assert.deepEqual(ids, ['douglas', 'ikea', 'italo', 'unieuro', 'vodafone']);
+  const ikea = r.data.stores.find((s) => s.id === 'ikea');
+  assert.equal(ikea.name, 'Ikea');
+  assert.equal(ikea.category, 'Casa');
+  assert.deepEqual(ikea.domains, ['ikea.com']);
+  assert.equal(ikea.cashbackLabel, '1,8%');
+  const zoo = (await call('/api/link', { initData: initData(bruno), storeId: 'zooplus' }));
+  assert.equal(zoo.status, 200, 'zooplus e\' attivo anche se non ancora in elenco');
   const unieuro = r.data.stores.find((s) => s.id === 'unieuro');
   assert.deepEqual(unieuro.rates.map((x) => [x.label, x.youGet]), [
     ['Elettrodomestici (consegna a casa)', '2,4%'],
@@ -524,6 +538,9 @@ await step('cron: negozi accesi e spenti da soli in base alle iscrizioni Awin', 
   assert.ok(unieuro.rules.declineReasons.includes('non sei un nuovo cliente del negozio'));
   const msgs = (await messages()).slice(before);
   assert.ok(msgs.some((m) => String(m.chat_id) === '111' && m.text.includes('Awin ti ha approvato') && m.text.includes('Unieuro')));
+  assert.ok(msgs.some((m) => String(m.chat_id) === '111' && m.text.includes('Aggiunti da soli al catalogo: Ikea')));
+  // Bruno aveva segnalato Ikea: ora c'e'.
+  assert.ok(msgs.some((m) => String(m.chat_id) === '222' && m.text.includes('Ikea è ora nella Mini App')));
   assert.ok(msgs.some((m) => String(m.chat_id) === '111' && m.text.includes('Temu')));
   // Bruno aveva segnalato Unieuro: ora e' approvato e il bot glielo dice.
   assert.ok(msgs.some((m) => String(m.chat_id) === '222' && m.text.includes('Unieuro è ora nella Mini App')));

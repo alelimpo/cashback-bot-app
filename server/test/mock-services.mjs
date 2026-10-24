@@ -33,7 +33,7 @@ const server = http.createServer(async (req, res) => {
     const rel = url.searchParams.get('relationship');
     if (rel === 'notjoined') return send(200, programs.notjoined);
     if (rel !== 'joined') return send(400, { error: 'expected joined' });
-    return send(200, programs.joined.map((id) => ({ id, name: `Programma ${id}`, status: 'Active' })));
+    return send(200, programs.joined.map((id) => ({ id, name: `Programma ${id}`, status: 'Active', ...((programs.info || {})[id] || {}) })));
   }
   if (/^\/publishers\/\d+\/commissiongroups$/.test(url.pathname)) {
     const mid = url.searchParams.get('advertiserId');

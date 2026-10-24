@@ -11,6 +11,8 @@
 // conferma che la transazione e' approvata E pagata a te. Una notifica falsa resta
 // "in attesa" per sempre e non genera mai denaro prelevabile.
 
+import CATALOG from './catalog.json';
+
 const MAX_INITDATA_AGE_SEC = 24 * 60 * 60;
 const SYNC_WINDOW_DAYS = 30; // l'API Awin accetta al massimo 31 giorni per richiesta
 const MAX_ID_LOOKUPS_PER_RUN = 4; // l'API Awin permette 20 chiamate al minuto
@@ -404,7 +406,7 @@ export function buildStoreView(s, env) {
     }
   } else if (Array.isArray(details.rates) && details.rates.length) {
     for (const r of details.rates) rates.push(rateEntry(r.label, r.type || 'percent', Number(r.value), r.currency || 'EUR', ctx));
-  } else {
+  } else if (Number(s.rate_max) > 0) {
     rates.push(rateEntry('Tutti i prodotti', s.rate_type, Number(s.rate_max), 'EUR', ctx));
   }
   // Stessa etichetta e stessa percentuale: una riga sola. Prima le piu' alte, "tutti gli altri" in fondo.
@@ -441,6 +443,7 @@ export function buildStoreView(s, env) {
     category: s.category,
     domains: String(s.domains || '').split(',').map((d) => d.trim().toLowerCase()).filter(Boolean),
     cashbackLabel: headline,
+    hasRates: rates.length > 0,
     note: s.rate_note,
     productLinks: deeplink,
     logo: (info && info.logoUrl) || (s.awin_mid ? `https://ui.awin.com/images/upload/merchant/profile/${s.awin_mid}.png` : null),
@@ -472,7 +475,8 @@ async function listStores(env) {
   const { results } = await env.DB.prepare(
     `SELECT ${STORE_COLUMNS} FROM stores WHERE active = 1 ORDER BY sort, name`
   ).all();
-  return results.map((s) => buildStoreView(s, env));
+  // Un negozio appena approvato compare quando il server ha letto le sue commissioni da Awin.
+  return results.map((s) => buildStoreView(s, env)).filter((v) => v.hasRates);
 }
 
 function programInfo(env) {
@@ -1111,10 +1115,29 @@ async function awinGet(env, path, params) {
 export async function syncPrograms(env) {
   if (!env.AWIN_API_TOKEN || !env.AWIN_PUBLISHER_ID) return { skipped: true };
   const pub = String(env.AWIN_PUBLISHER_ID);
+  const seeded = await seedCatalog(env);
 
   const joined = await awinGet(env, `/publishers/${pub}/programmes`, { relationship: 'joined' });
   const joinedIds = new Set(joined.map((p) => Number(p.id)).filter(Boolean));
-  const { results: stores } = await env.DB.prepare('SELECT id, name, awin_mid, domains, active, awin_info_at FROM stores').all();
+  let { results: stores } = await env.DB.prepare('SELECT id, name, awin_mid, domains, active, awin_info_at FROM stores').all();
+
+  // Programmi approvati che non sono ancora nel catalogo (per esempio iscrizioni fatte a mano
+  // dal sito Awin): vengono aggiunti da soli con nome, domini e categoria presi da Awin.
+  const known = new Set(stores.map((s) => Number(s.awin_mid)));
+  const added = [];
+  if (String(env.AUTO_ACTIVATE_STORES || 'true') !== 'false') {
+    for (const p of joined) {
+      if (!p || !p.id || known.has(Number(p.id))) continue;
+      const row = catalogRowFromProgramme(p, stores);
+      if (!row) continue;
+      await env.DB.prepare(
+        "INSERT OR IGNORE INTO stores (id, name, awin_mid, domains, category, rate_type, rate_max, active, sort) VALUES (?, ?, ?, ?, ?, 'percent', 0, 0, 200)"
+      ).bind(row.id, row.name, Number(p.id), row.domains, row.category).run();
+      stores.push({ id: row.id, name: row.name, awin_mid: Number(p.id), domains: row.domains, active: 0, awin_info_at: null });
+      known.add(Number(p.id));
+      added.push(row.name);
+    }
+  }
 
   const turnedOn = [];
   const activated = [];
@@ -1129,13 +1152,15 @@ export async function syncPrograms(env) {
       if (want) activated.push(s);
     }
   }
-  if (turnedOn.length) await notifyAdmins(env, `Awin ti ha approvato: ${turnedOn.join(', ')}. Ora ${turnedOn.length === 1 ? 'è visibile' : 'sono visibili'} nella Mini App.`);
+  if (turnedOn.length) await notifyAdmins(env, `Awin ti ha approvato: ${turnedOn.join(', ')}. ${turnedOn.length === 1 ? 'Compare' : 'Compaiono'} nella Mini App appena il server legge le commissioni (di solito entro un'ora).${added.length ? `\nAggiunti da soli al catalogo: ${added.join(', ')}.` : ''}`);
   if (turnedOff.length) await notifyAdmins(env, `Iscrizione non più attiva su Awin: ${turnedOff.join(', ')}. ${turnedOff.length === 1 ? 'Il negozio è stato nascosto' : 'I negozi sono stati nascosti'} dalla Mini App.`);
   const resolvedRequests = activated.length ? await resolveRequestsForStores(env, activated) : 0;
 
   const cutoff = Date.now() - STORE_REFRESH_HOURS * 3600 * 1000;
+  // Prima i negozi appena approvati (mai letti), poi quelli con i dati piu' vecchi.
   const due = stores
     .filter((s) => s.active && (!s.awin_info_at || Date.parse(String(s.awin_info_at).replace(' ', 'T') + 'Z') < cutoff))
+    .sort((a, b) => (a.awin_info_at ? 1 : 0) - (b.awin_info_at ? 1 : 0) || String(a.awin_info_at || '').localeCompare(String(b.awin_info_at || '')))
     .slice(0, STORE_REFRESH_PER_RUN);
   const refreshed = [];
   const failed = [];
@@ -1173,7 +1198,75 @@ export async function syncPrograms(env) {
       failed.push(`${s.id}: ${String(err && err.message ? err.message : err)}`);
     }
   }
-  return { joined: joinedIds.size, turnedOn, turnedOff, resolvedRequests, refreshed, failed };
+  return { joined: joinedIds.size, seeded, added, turnedOn, turnedOff, resolvedRequests, refreshed, failed };
+}
+
+// Negozi a cui hai chiesto l'iscrizione (src/catalog.json): a ogni giro il server aggiunge al
+// database quelli che mancano e la loro scheda, senza toccare le schede gia' presenti.
+export async function seedCatalog(env, catalog = CATALOG) {
+  if (!Array.isArray(catalog) || !catalog.length) return 0;
+  const { results } = await env.DB.prepare('SELECT awin_mid, details IS NOT NULL AS has_details FROM stores').all();
+  const have = new Map(results.map((r) => [Number(r.awin_mid), !!r.has_details]));
+  const stmts = [];
+  for (const c of catalog) {
+    const details = JSON.stringify(c.details || {});
+    if (!have.has(Number(c.mid))) {
+      stmts.push(env.DB.prepare(
+        "INSERT OR IGNORE INTO stores (id, name, awin_mid, domains, category, rate_type, rate_max, active, sort, details) VALUES (?, ?, ?, ?, ?, 'percent', 0, 0, ?, ?)"
+      ).bind(c.id, c.name, Number(c.mid), c.domains, c.category || null, Number(c.sort) || 100, details));
+    } else if (!have.get(Number(c.mid)) && c.details) {
+      stmts.push(env.DB.prepare('UPDATE stores SET details = ? WHERE awin_mid = ? AND details IS NULL').bind(details, Number(c.mid)));
+    }
+  }
+  for (let i = 0; i < stmts.length; i += 50) await env.DB.batch(stmts.slice(i, i + 50));
+  return stmts.length;
+}
+
+// Settori Awin -> categorie della Mini App.
+const SECTOR_IT = [
+  [/cloth|fashion|apparel|shoe|footwear|accessor/i, 'Moda'],
+  [/jewel|watch/i, 'Gioielli e accessori'],
+  [/beauty|cosmetic|fragrance|perfume/i, 'Bellezza'],
+  [/health|pharma|vitamin|nutrition|wellness/i, 'Salute'],
+  [/travel|holiday|hotel|flight|car rental|airline|tour/i, 'Viaggi'],
+  [/electronic|computer|technology|software|appliance|gaming/i, 'Elettronica'],
+  [/home|garden|furniture|diy|house/i, 'Casa'],
+  [/sport|outdoor|fitness/i, 'Sport'],
+  [/pet/i, 'Animali'],
+  [/food|drink|wine|grocer/i, 'Cibo e vino'],
+  [/book|ticket|entertainment|media|music|event/i, 'Libri e biglietti'],
+  [/telecom|mobile|broadband|utilit|energy/i, 'Telefonia ed energia'],
+  [/auto|motor|car|tyre/i, 'Auto e moto'],
+  [/toy|baby|kid/i, 'Bambini'],
+];
+
+export function cleanProgrammeName(name) {
+  return String(name || '')
+    .replace(/\s*\((IT|ITA|Italia|Italy)\)\s*$/i, '')
+    .replace(/[\s_-]+(IT|ITA|EUR|EU|Global|Italia|Italy)(\s+New)?$/i, '')
+    .replace(/\s+(19|20)\d\d(\s+Campaign)?$/i, '')
+    .replace(/\s+Campaign$/i, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function catalogRowFromProgramme(p, stores) {
+  const name = cleanProgrammeName(p.name) || String(p.name || '').trim();
+  if (!name) return null;
+  const base = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || `awin-${p.id}`;
+  const taken = new Set(stores.map((s) => s.id));
+  const id = taken.has(base) ? `${base}-${p.id}` : base;
+  const domains = new Set();
+  for (const d of Array.isArray(p.validDomains) ? p.validDomains : []) {
+    const host = String(d && d.domain || '').toLowerCase().replace(/^\*\./, '').replace(/^www\./, '').replace(/\/.*$/, '');
+    if (/^[a-z0-9.-]+\.[a-z]{2,}$/.test(host)) domains.add(host);
+  }
+  const display = hostFromInput(p.displayUrl || '');
+  if (display) domains.add(display);
+  if (!domains.size) return null;
+  const sector = String(p.primarySector || '');
+  const category = (SECTOR_IT.find(([re]) => re.test(sector)) || [null, 'Altro'])[1];
+  return { id, name, domains: [...domains].slice(0, 6).join(','), category };
 }
 
 export async function syncAwin(env) {

@@ -53,7 +53,14 @@ Serve anche da riserva finché l'API non risponde. Queste voci vengono dal profi
 programma su Awin, non dall'API: il semaforo in particolare cambia nel tempo, quindi ricontrollalo
 ogni mese circa e aggiorna la scheda (la Mini App mostra la data del controllo).
 
-Per aggiungere un negozio nuovo (dashboard Cloudflare > Storage e database > D1 > `cashback-bot` > Console):
+La seconda ondata (79 programmi in attesa di approvazione) è in `src/catalog.json`, con le regole lette
+dai termini di ciascun programma: a ogni giro il server aggiunge al database i negozi che mancano, senza
+toccare le schede già presenti. Se Awin ti approva un programma che non è in nessun elenco (per esempio
+un'iscrizione fatta a mano dal sito Awin), il server lo aggiunge da solo con nome, domini e categoria
+presi da Awin. Un negozio appena approvato compare nella Mini App quando il server ha letto le sue
+commissioni (fino a 4 negozi all'ora).
+
+Per aggiungere a mano un negozio nuovo (dashboard Cloudflare > Storage e database > D1 > `cashback-bot` > Console):
 
 ```sql
 INSERT INTO stores (id, name, awin_mid, domains, category, rate_type, rate_max)
