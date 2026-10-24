@@ -26,9 +26,9 @@ FX_TO_EUR = '{"USD": 0.88}'
 ALLOWED_ORIGIN = "https://alelimpo.github.io"
 MINI_APP_URL = "https://alelimpo.github.io/cashback-bot-app/"
 # Il tuo ID Telegram (numerico): vedi la sezione admin e ricevi gli avvisi di prelievo.
-ADMIN_IDS = ""
+ADMIN_IDS = "410540302"
 # Nome utente del bot senza @, per il link di invito (es. CashbackItaliaBot).
-BOT_USERNAME = ""
+BOT_USERNAME = "MioCashback_bot"
 # Facoltativo: link diretto della Mini App creata con BotFather (es. https://t.me/CashbackItaliaBot/app).
 TELEGRAM_APP_LINK = ""
 
