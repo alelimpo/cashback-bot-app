@@ -1819,6 +1819,13 @@
   "domains": "cisalfasport.it",
   "sort": 145,
   "details": {
+   "hideGroups": [
+    "BRAND",
+    "CPA 8%"
+   ],
+   "labels": {
+    "Default": "Tutti i prodotti"
+   },
    "kpi": {
     "averagePaymentTime": 138
    },
@@ -1841,6 +1848,9 @@
      "invalid_order",
      "program_closed",
      "other"
+    ],
+    "notes": [
+     "Il programma di affiliazione del negozio indica anche una commissione dell'8% (gruppo \"CPA 8%\") senza dire a quali acquisti si applica: qui mostriamo il 6% che vale per tutto il resto. Se un tuo acquisto rientra nell'8%, ricevi il 4,8% e lo vedi nei tuoi acquisti."
     ]
    },
    "paymentStatus": {

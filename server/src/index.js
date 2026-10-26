@@ -702,8 +702,10 @@ async function handleStoreRequest(request, env, ctx) {
   const key = storeKey(storeName);
   if (!key) throw new HttpError(400, 'invalid_store_name');
 
-  const { results: stores } = await env.DB.prepare('SELECT id, name, domains, active FROM stores').all();
-  const known = findKnownStore(stores, key, host);
+  const { results: allStores } = await env.DB.prepare('SELECT id, name, domains, active, awin_status FROM stores').all();
+  // I negozi che hanno rifiutato la nostra richiesta su Awin non sono "in arrivo".
+  const rejectedStore = findKnownStore(allStores.filter((s) => s.awin_status === 'rejected'), key, host);
+  const known = findKnownStore(allStores.filter((s) => s.awin_status !== 'rejected'), key, host);
   if (known && known.active) throw new HttpError(409, 'store_available');
 
   const recent = await env.DB.prepare(
@@ -723,11 +725,11 @@ async function handleStoreRequest(request, env, ctx) {
   ).bind(user.id, storeName, key, host, note, known ? known.id : null, status).run();
   const id = ins.meta ? ins.meta.last_row_id : null;
 
-  ctx.waitUntil(notifyStoreRequest(env, { id, user, storeName, key, host, note, known }));
+  ctx.waitUntil(notifyStoreRequest(env, { id, user, storeName, key, host, note, known, rejectedStore }));
   return json({ ok: true, id, status, comingSoon: known ? known.name : null });
 }
 
-async function notifyStoreRequest(env, { id, user, storeName, key, host, note, known }) {
+async function notifyStoreRequest(env, { id, user, storeName, key, host, note, known, rejectedStore }) {
   let matches = [];
   let directoryError = null;
   if (!known) {
@@ -753,7 +755,9 @@ async function notifyStoreRequest(env, { id, user, storeName, key, host, note, k
     `Utenti che lo chiedono: ${count}`,
     '',
   ];
-  if (known) {
+  if (rejectedStore) {
+    lines.push(`${rejectedStore.name} ha rifiutato la tua richiesta su Awin: puoi chiedergli di riconsiderarla dal suo profilo Awin, oppure proporre un'alternativa.`);
+  } else if (known) {
     lines.push(`È già nel catalogo (${known.name}) in attesa dell'approvazione Awin: l'utente verrà avvisato da solo quando si attiva.`);
   } else if (matches.length) {
     lines.push('Su Awin (Italia) c\'è:');
@@ -953,6 +957,9 @@ async function handleAdminSetup(request, env) {
         : { ok: false, skipped: true },
       botUsername: env.BOT_USERNAME || null,
       activeStores: (await env.DB.prepare('SELECT COUNT(*) AS n FROM stores WHERE active = 1').first()).n,
+      programmes: Object.fromEntries((await env.DB.prepare(
+        "SELECT COALESCE(awin_status, 'pending') AS status, COUNT(*) AS n FROM stores GROUP BY 1"
+      ).all()).results.map((r) => [r.status, r.n])),
     },
     lastSync: await readSetting(env, 'last_sync'),
     lastProgramsSync: await readSetting(env, 'last_programs_sync'),
@@ -1119,7 +1126,10 @@ export async function syncPrograms(env) {
 
   const joined = await awinGet(env, `/publishers/${pub}/programmes`, { relationship: 'joined' });
   const joinedIds = new Set(joined.map((p) => Number(p.id)).filter(Boolean));
-  let { results: stores } = await env.DB.prepare('SELECT id, name, awin_mid, domains, active, awin_info_at FROM stores').all();
+  // Rifiuti: se la chiamata non riesce si va avanti senza aggiornarli.
+  const rejectedList = await awinGet(env, `/publishers/${pub}/programmes`, { relationship: 'rejected' }).catch(() => null);
+  const rejectedIds = new Set((rejectedList || []).map((p) => Number(p.id)).filter(Boolean));
+  let { results: stores } = await env.DB.prepare('SELECT id, name, awin_mid, domains, active, awin_info_at, awin_status FROM stores').all();
 
   // Programmi approvati che non sono ancora nel catalogo (per esempio iscrizioni fatte a mano
   // dal sito Awin): vengono aggiunti da soli con nome, domini e categoria presi da Awin.
@@ -1133,7 +1143,7 @@ export async function syncPrograms(env) {
       await env.DB.prepare(
         "INSERT OR IGNORE INTO stores (id, name, awin_mid, domains, category, rate_type, rate_max, active, sort) VALUES (?, ?, ?, ?, ?, 'percent', 0, 0, 200)"
       ).bind(row.id, row.name, Number(p.id), row.domains, row.category).run();
-      stores.push({ id: row.id, name: row.name, awin_mid: Number(p.id), domains: row.domains, active: 0, awin_info_at: null });
+      stores.push({ id: row.id, name: row.name, awin_mid: Number(p.id), domains: row.domains, active: 0, awin_info_at: null, awin_status: null });
       known.add(Number(p.id));
       added.push(row.name);
     }
@@ -1151,6 +1161,25 @@ export async function syncPrograms(env) {
       (want ? turnedOn : turnedOff).push(s.name);
       if (want) activated.push(s);
     }
+  }
+  // Stato della richiesta su Awin per ogni negozio del catalogo (approvato, in attesa, rifiutato).
+  const newlyRejected = [];
+  const statusUpdates = [];
+  for (const s of stores) {
+    const mid = Number(s.awin_mid);
+    let status = joinedIds.has(mid) ? 'joined'
+      : rejectedIds.has(mid) ? 'rejected'
+      : s.awin_status === 'joined' ? 'left'
+      : s.awin_status === 'rejected' && rejectedList === null ? 'rejected'
+      : 'pending';
+    if (status === (s.awin_status || 'pending') && s.awin_status) continue;
+    if (status === 'rejected' && s.awin_status !== 'rejected') newlyRejected.push(s.name);
+    statusUpdates.push(env.DB.prepare('UPDATE stores SET awin_status = ? WHERE id = ?').bind(status, s.id));
+    s.awin_status = status;
+  }
+  for (let i = 0; i < statusUpdates.length; i += 50) await env.DB.batch(statusUpdates.slice(i, i + 50));
+  if (newlyRejected.length) {
+    await notifyAdmins(env, `Richiesta rifiutata su Awin da: ${newlyRejected.join(', ')}. Il motivo arriva per email; se lo correggi puoi riprovare dal profilo del negozio su Awin (icona +), meglio dopo aver scritto al negozio.`);
   }
   if (turnedOn.length) await notifyAdmins(env, `Awin ti ha approvato: ${turnedOn.join(', ')}. ${turnedOn.length === 1 ? 'Compare' : 'Compaiono'} nella Mini App appena il server legge le commissioni (di solito entro un'ora).${added.length ? `\nAggiunti da soli al catalogo: ${added.join(', ')}.` : ''}`);
   if (turnedOff.length) await notifyAdmins(env, `Iscrizione non più attiva su Awin: ${turnedOff.join(', ')}. ${turnedOff.length === 1 ? 'Il negozio è stato nascosto' : 'I negozi sono stati nascosti'} dalla Mini App.`);
@@ -1198,7 +1227,7 @@ export async function syncPrograms(env) {
       failed.push(`${s.id}: ${String(err && err.message ? err.message : err)}`);
     }
   }
-  return { joined: joinedIds.size, seeded, added, turnedOn, turnedOff, resolvedRequests, refreshed, failed };
+  return { joined: joinedIds.size, rejected: rejectedIds.size, seeded, added, turnedOn, turnedOff, newlyRejected, resolvedRequests, refreshed, failed };
 }
 
 // Negozi a cui hai chiesto l'iscrizione (src/catalog.json): a ogni giro il server aggiunge al

@@ -32,6 +32,7 @@ const server = http.createServer(async (req, res) => {
   if (/^\/publishers\/\d+\/programmes$/.test(url.pathname)) {
     const rel = url.searchParams.get('relationship');
     if (rel === 'notjoined') return send(200, programs.notjoined);
+    if (rel === 'rejected') return send(200, (programs.rejected || []).map((id) => ({ id, name: `Programma ${id}`, status: 'Active' })));
     if (rel !== 'joined') return send(400, { error: 'expected joined' });
     return send(200, programs.joined.map((id) => ({ id, name: `Programma ${id}`, status: 'Active', ...((programs.info || {})[id] || {}) })));
   }

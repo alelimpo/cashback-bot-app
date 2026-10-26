@@ -512,6 +512,7 @@ await step('cron: negozi accesi e spenti da soli in base alle iscrizioni Awin', 
   await setPrograms({
     ...PROGRAMS,
     joined: [9449, 9418, 10139, 9685, 9500, 88888],
+    rejected: [9690, 12427], // JD Sports e Tiqets rifiutano
     info: { 88888: { name: 'Ikea IT', primarySector: 'Home & Garden', displayUrl: 'https://www.ikea.com/it/it/', validDomains: [{ domain: '*.ikea.com' }] } },
     groups: { ...PROGRAMS.groups, 88888: [{ groupId: 9, groupCode: 'DEFAULT', groupName: 'Default', type: 'percentage', percentage: 3 }] },
   });
@@ -539,6 +540,19 @@ await step('cron: negozi accesi e spenti da soli in base alle iscrizioni Awin', 
   const msgs = (await messages()).slice(before);
   assert.ok(msgs.some((m) => String(m.chat_id) === '111' && m.text.includes('Awin ti ha approvato') && m.text.includes('Unieuro')));
   assert.ok(msgs.some((m) => String(m.chat_id) === '111' && m.text.includes('Aggiunti da soli al catalogo: Ikea')));
+  assert.ok(msgs.some((m) => String(m.chat_id) === '111' && m.text.includes('Richiesta rifiutata su Awin') && m.text.includes('JD Sports') && m.text.includes('Tiqets')));
+  // Un negozio che ha rifiutato non e' "in arrivo" per chi lo segnala.
+  const jd = await call('/api/store-request', { initData: initData(alice), storeName: 'JD Sports' });
+  assert.equal(jd.status, 200);
+  assert.equal(jd.data.status, 'new');
+  assert.equal(jd.data.comingSoon, null);
+  const setup = await call('/api/admin/setup', { initData: initData(alice) });
+  assert.equal(setup.data.checks.programmes.joined, 6);
+  assert.equal(setup.data.checks.programmes.rejected, 2);
+  // Al giro successivo nessun nuovo avviso di rifiuto.
+  const n = (await messages()).length;
+  await runCron();
+  assert.ok(!(await messages()).slice(n).some((m) => m.text && m.text.includes('Richiesta rifiutata')));
   // Bruno aveva segnalato Ikea: ora c'e'.
   assert.ok(msgs.some((m) => String(m.chat_id) === '222' && m.text.includes('Ikea è ora nella Mini App')));
   assert.ok(msgs.some((m) => String(m.chat_id) === '111' && m.text.includes('Temu')));

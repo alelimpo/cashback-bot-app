@@ -3,7 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>Cashback Bot</title>
+    <title>Cashback Bot: cashback sui tuoi acquisti online</title>
+    <meta name="description" content="Servizio di cashback su Telegram: apri i negozi partner dal bot, compri allo stesso prezzo e il 60% della commissione che il negozio ci paga torna a te. Percentuali, tempi e regole sempre visibili.">
+    <meta property="og:title" content="Cashback Bot: cashback sui tuoi acquisti online">
+    <meta property="og:description" content="Compri allo stesso prezzo e il 60% della commissione torna a te. Tutto su Telegram, con percentuali, tempi e regole sempre visibili.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://alelimpo.github.io/cashback-bot-app/">
+    <meta name="theme-color" content="#0e5a45">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link rel="preload" href="fonts/bricolage-grotesque.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="preload" href="fonts/figtree-400.woff2" as="font" type="font/woff2" crossorigin>
@@ -270,7 +276,8 @@
                 </div>
                 <div id="heroGuest">
                     <p class="hero-guest">Stesso prezzo di sempre. Una parte ti torna indietro.</p>
-                    <p class="hero-note" id="guestNote" hidden>Per ricevere il cashback apri questa pagina dal bot Telegram <a id="botLink" href="https://t.me/MioCashback_bot" style="color:inherit;font-weight:700">@MioCashback_bot</a>.</p>
+                    <p class="hero-note" id="guestNote" hidden>Cashback Bot è un servizio di cashback su Telegram. Apri i negozi partner dal bot <b>@MioCashback_bot</b>, compri come sempre e una parte della spesa ti torna indietro.</p>
+                    <a class="btn-coin" id="botLink" href="https://t.me/MioCashback_bot" hidden style="display:inline-block;margin-top:12px;text-decoration:none">Apri il bot su Telegram</a>
                 </div>
                 <div class="split" aria-label="Divisione della commissione">
                     <div class="split-bar">
@@ -282,6 +289,14 @@
             </div>
 
             <div class="tiles" id="homeTiles"></div>
+
+            <div class="section" id="guestAbout" hidden>
+                <div class="card">
+                    <h3>Come funziona</h3>
+                    <div id="guestSteps" style="margin-top:10px"></div>
+                    <p class="muted small" style="margin-top:12px">Per ogni negozio mostriamo quanto ci paga, quanto va a te, i tempi medi e le regole del suo programma di affiliazione. Per domande scrivici sul bot.</p>
+                </div>
+            </div>
 
             <div class="section">
                 <div class="section-head">
@@ -1279,6 +1294,8 @@
                 else if (em.skipped) line(false, 'Email non configurata: le segnalazioni arrivano solo su Telegram');
                 else line(false, 'Email non inviata: ' + (em.error || 'errore'));
                 line(r.checks.activeStores > 0, 'Negozi attivi: ' + r.checks.activeStores);
+                const pr = r.checks.programmes || {};
+                if (Object.keys(pr).length) line(true, 'Richieste su Awin: ' + (pr.joined || 0) + ' approvate, ' + (pr.pending || 0) + ' in attesa, ' + (pr.rejected || 0) + ' rifiutate');
                 if (r.lastSync) line(!r.lastSync.error, 'Ultima lettura da Awin: ' + day(r.lastSync.at) + (r.lastSync.error ? ' (errore: ' + r.lastSync.error + ')' : ''));
                 else line(false, 'Nessuna lettura da Awin ancora (parte ogni ora)');
                 out.hidden = false;
@@ -1303,6 +1320,8 @@
             renderInfoButtons();
             if (!initData) {
                 $('guestNote').hidden = false;
+                $('botLink').hidden = false;
+                $('guestAbout').hidden = false;
                 $('walletGuest').hidden = false;
                 $('botLink').href = 'https://t.me/' + BOT_USERNAME;
                 try {
@@ -1310,6 +1329,12 @@
                     state.stores = pub.stores;
                     state.program = pub.program || null;
                 } catch (e) { /* server non raggiungibile: restano i valori predefiniti */ }
+                const p0 = prog();
+                $('guestSteps').replaceChildren(steps([
+                    ['Apri il negozio dal bot', 'Nella Mini App scegli il negozio e tocca "Apri": il link ci collega al tuo acquisto.'],
+                    ['Compra come sempre', 'Stesso sito, stessi prezzi e stesse offerte del negozio.'],
+                    ['Ricevi la tua parte', 'Il negozio ci paga una commissione: il ' + p0.userSharePercent + '% è tuo. La prelevi da ' + euro(p0.minPayoutCents) + ' con PayPal o buono regalo.'],
+                ]));
                 renderSplit();
                 renderChips();
                 renderStores();

@@ -26,7 +26,8 @@ CREATE TABLE IF NOT EXISTS stores (
   sort             INTEGER NOT NULL DEFAULT 100,
   details          TEXT,                       -- scheda per l'utente: regole, note, tempi (vedi store-details.sql)
   awin_info        TEXT,                       -- commissioni e tempi letti ogni giorno dall'API Awin
-  awin_info_at     TEXT
+  awin_info_at     TEXT,
+  awin_status      TEXT                        -- richiesta su Awin: pending | joined | rejected | left
 );
 
 -- Ogni clic dalla Mini App: l'id e' il clickref che Awin restituisce nella transazione.

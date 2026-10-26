@@ -58,7 +58,8 @@ dai termini di ciascun programma: a ogni giro il server aggiunge al database i n
 toccare le schede già presenti. Se Awin ti approva un programma che non è in nessun elenco (per esempio
 un'iscrizione fatta a mano dal sito Awin), il server lo aggiunge da solo con nome, domini e categoria
 presi da Awin. Un negozio appena approvato compare nella Mini App quando il server ha letto le sue
-commissioni (fino a 4 negozi all'ora).
+commissioni (fino a 4 negozi all'ora). Il server segna anche le richieste rifiutate su Awin e ti avvisa
+sul bot: chi segnala un negozio che ci ha rifiutato non si sente dire che è "in arrivo".
 
 Per aggiungere a mano un negozio nuovo (dashboard Cloudflare > Storage e database > D1 > `cashback-bot` > Console):
 
