@@ -419,6 +419,8 @@
                 <h3>Configurazione</h3>
                 <p class="muted small" style="margin:4px 0 10px">Collega il bot alla Mini App, controlla Awin e l'email, e mostra l'indirizzo per le notifiche Awin.</p>
                 <button class="btn btn-primary" id="setupBtn">Configura e verifica</button>
+                <button class="btn btn-soft" id="syncBtn" style="margin-top:8px">Aggiorna negozi da Awin ora</button>
+                <p class="tiny" style="margin-top:6px">Il server lo fa da solo ogni ora: usalo quando Awin ti ha appena approvato un programma o hai accettato un invito.</p>
                 <div id="setupResult" hidden class="small" style="margin-top:12px;display:flex;flex-direction:column;gap:4px"></div>
                 <div id="notifyBox" hidden style="margin-top:12px">
                     <p class="tiny" style="margin-bottom:6px">Da incollare in Awin, Strumenti &gt; Notifiche transazione (metodo POST):</p>
@@ -497,6 +499,7 @@
             already_requested: "L'hai già segnalato: ti scriviamo sul bot appena abbiamo novità.",
             reply_required: "Scrivi l'alternativa da proporre.",
             network: 'Connessione non riuscita: controlla la rete e riprova.',
+            too_soon: 'Aggiornamento appena fatto: riprova tra due minuti.',
         };
         const DEFAULT_PROGRAM = { userSharePercent: 60, minPayoutCents: 1000, referralBonusCents: 200, payoutWorkingDays: 7 };
         const REQUEST_STATUS = {
@@ -1308,6 +1311,26 @@
             } finally {
                 btn.disabled = false;
                 btn.textContent = 'Configura e verifica';
+            }
+        });
+        $('syncBtn').addEventListener('click', async () => {
+            const btn = $('syncBtn');
+            btn.disabled = true;
+            btn.textContent = 'Aggiornamento in corso...';
+            try {
+                const r = await api('/api/admin/sync', {});
+                const parts = [];
+                if (r.turnedOn.length) parts.push('nuovi attivi: ' + r.turnedOn.join(', '));
+                if (r.added.length) parts.push('aggiunti al catalogo: ' + r.added.join(', '));
+                parts.push(r.visibleStores + ' negozi visibili nella Mini App');
+                if (r.activeStores > r.visibleStores) parts.push((r.activeStores - r.visibleStores) + ' in attesa delle commissioni o nascosti');
+                toast(r.ok ? 'Fatto: ' + parts.join('; ') + '.' : 'Aggiornamento con errori: ' + (r.error || 'riprova'), !r.ok);
+                load();
+            } catch (e) {
+                toast(errorText(e), true);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Aggiorna negozi da Awin ora';
             }
         });
         $('copyNotify').addEventListener('click', async () => {

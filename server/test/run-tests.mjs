@@ -573,6 +573,23 @@ await step('Italo non accetta link a una pagina: si apre la home', async () => {
   assert.equal(me.data.stores.find((s) => s.id === 'italo').productLinks, false);
 });
 
+await step('admin: aggiorna ora (solo admin, non troppo spesso)', async () => {
+  let r = await call('/api/admin/sync', { initData: initData(bruno) });
+  assert.equal(r.status, 403);
+  r = await call('/api/admin/sync', { initData: initData(alice) });
+  assert.equal(r.status, 429, 'il cron e\' appena girato');
+  assert.equal(r.data.error, 'too_soon');
+});
+
+await step('negozio nascosto a mano: fuori dall\'elenco e senza link', async () => {
+  const { execSync } = await import('node:child_process');
+  execSync(`npx wrangler d1 execute cashback-bot --local --command "UPDATE stores SET details = json_set(COALESCE(details, '{}'), '$.hidden', json('true')) WHERE id = 'ikea'"`, { stdio: 'ignore' });
+  const r = await call('/api/stores');
+  assert.equal(r.data.stores.find((s) => s.id === 'ikea'), undefined);
+  const l = await call('/api/link', { initData: initData(bruno), storeId: 'ikea' });
+  assert.equal(l.status, 404);
+});
+
 await step('elenco negozi pubblico senza login', async () => {
   const r = await call('/api/stores');
   assert.equal(r.status, 200);

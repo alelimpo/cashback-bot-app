@@ -97,6 +97,7 @@ export default {
         case 'POST /api/admin/withdrawals': res = await handleAdminList(request, env); break;
         case 'POST /api/admin/withdrawals/update': res = await handleAdminUpdate(request, env, ctx); break;
         case 'POST /api/admin/setup': res = await handleAdminSetup(request, env); break;
+        case 'POST /api/admin/sync': res = await handleAdminSync(request, env); break;
         case 'POST /api/store-request': res = await handleStoreRequest(request, env, ctx); break;
         case 'POST /api/admin/store-requests': res = await handleAdminStoreRequests(request, env); break;
         case 'POST /api/admin/store-requests/update': res = await handleAdminStoreRequestUpdate(request, env, ctx); break;
@@ -111,18 +112,27 @@ export default {
   },
 
   async scheduled(controller, env, ctx) {
-    const run = async (key, fn) => {
-      try {
-        const result = await fn(env);
-        await saveSetting(env, key, { at: new Date().toISOString(), ...result });
-      } catch (err) {
-        console.error(`${key} fallita`, err);
-        await saveSetting(env, key, { at: new Date().toISOString(), error: String(err && err.message ? err.message : err) });
-      }
-    };
-    ctx.waitUntil(run('last_sync', syncAwin).then(() => run('last_programs_sync', syncPrograms)));
+    ctx.waitUntil(runSync(env));
   },
 };
+
+// Giro completo con Awin: vendite, poi programmi e negozi. Parte ogni ora dal cron
+// oppure dal pulsante "Aggiorna ora" nell'area admin.
+async function runSync(env) {
+  const out = {};
+  for (const [key, fn] of [['last_sync', syncAwin], ['last_programs_sync', syncPrograms]]) {
+    let value;
+    try {
+      value = { at: new Date().toISOString(), ...(await fn(env)) };
+    } catch (err) {
+      console.error(`${key} fallita`, err);
+      value = { at: new Date().toISOString(), error: String(err && err.message ? err.message : err) };
+    }
+    await saveSetting(env, key, value);
+    out[key] = value;
+  }
+  return out;
+}
 
 // ------------------------------------------------- segreti e impostazioni
 
@@ -444,6 +454,7 @@ export function buildStoreView(s, env) {
     domains: String(s.domains || '').split(',').map((d) => d.trim().toLowerCase()).filter(Boolean),
     cashbackLabel: headline,
     hasRates: rates.length > 0,
+    hidden: details.hidden === true,
     note: s.rate_note,
     productLinks: deeplink,
     logo: (info && info.logoUrl) || (s.awin_mid ? `https://ui.awin.com/images/upload/merchant/profile/${s.awin_mid}.png` : null),
@@ -476,7 +487,8 @@ async function listStores(env) {
     `SELECT ${STORE_COLUMNS} FROM stores WHERE active = 1 ORDER BY sort, name`
   ).all();
   // Un negozio appena approvato compare quando il server ha letto le sue commissioni da Awin.
-  return results.map((s) => buildStoreView(s, env)).filter((v) => v.hasRates);
+  // I negozi nascosti a mano (details.hidden) non compaiono mai.
+  return results.map((s) => buildStoreView(s, env)).filter((v) => v.hasRates && !v.hidden);
 }
 
 function programInfo(env) {
@@ -559,6 +571,7 @@ async function handleLink(request, env) {
 
   // Alcuni negozi (es. Italo) non accettano link a una pagina precisa: si apre la home.
   const view = buildStoreView(store, env);
+  if (view.hidden) throw new HttpError(404, 'store_not_found');
   let destination = null;
   if (body.url && view.productLinks) {
     let parsed;
@@ -923,6 +936,26 @@ async function handleAdminUpdate(request, env, ctx) {
     : `La tua richiesta di prelievo di ${formatEuro(row.amount_cents)} non e' andata a buon fine: l'importo e' tornato nel saldo. Scrivici se hai domande.`;
   ctx.waitUntil(tgSend(env, row.user_id, text));
   return json({ ok: true });
+}
+
+// "Aggiorna ora": stesso giro del cron, al massimo una volta ogni 2 minuti (limiti dell'API Awin).
+async function handleAdminSync(request, env) {
+  await requireAdmin(request, env);
+  const last = await readSetting(env, 'last_programs_sync');
+  if (last && last.at && Date.now() - Date.parse(last.at) < 120 * 1000) throw new HttpError(429, 'too_soon');
+  const out = await runSync(env);
+  const p = out.last_programs_sync || {};
+  return json({
+    ok: !p.error && !(out.last_sync || {}).error,
+    error: p.error || (out.last_sync || {}).error || null,
+    synced: (out.last_sync || {}).synced ?? null,
+    joined: p.joined ?? null,
+    added: p.added || [],
+    turnedOn: p.turnedOn || [],
+    refreshed: p.refreshed || [],
+    activeStores: (await env.DB.prepare('SELECT COUNT(*) AS n FROM stores WHERE active = 1').first()).n,
+    visibleStores: (await listStores(env)).length,
+  });
 }
 
 // Configurazione in un tocco dall'area admin: collega il webhook del bot, imposta il
