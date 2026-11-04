@@ -590,6 +590,23 @@ await step('negozio nascosto a mano: fuori dall\'elenco e senza link', async () 
   assert.equal(l.status, 404);
 });
 
+await step('token Awin revocato: un solo avviso all\'admin, poi conferma quando torna a funzionare', async () => {
+  await fetch(MOCK + '/__authfail?on=1');
+  let n = (await messages()).length;
+  await runCron();
+  let sent = (await messages()).slice(n).filter((m) => String(m.chat_id) === '111');
+  assert.equal(sent.filter((m) => m.text.includes('non accetta più il token')).length, 1);
+  n = (await messages()).length;
+  await runCron();
+  sent = (await messages()).slice(n).filter((m) => String(m.chat_id) === '111');
+  assert.equal(sent.filter((m) => m.text.includes('non accetta più il token')).length, 0, 'niente avvisi ripetuti');
+  await fetch(MOCK + '/__authfail?on=0');
+  n = (await messages()).length;
+  await runCron();
+  sent = (await messages()).slice(n).filter((m) => String(m.chat_id) === '111');
+  assert.ok(sent.some((m) => m.text.includes('funziona di nuovo')));
+});
+
 await step('elenco negozi pubblico senza login', async () => {
   const r = await call('/api/stores');
   assert.equal(r.status, 200);

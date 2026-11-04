@@ -8,6 +8,7 @@ const messages = [];
 let programs = { joined: [], notjoined: [], groups: {}, details: {} };
 const calls = [];
 const emails = [];
+let authFail = false; // simula un token Awin revocato
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost');
@@ -23,11 +24,12 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === '/__messages') return send(200, messages);
   if (url.pathname === '/__calls') return send(200, calls);
   if (url.pathname === '/__emails') return send(200, emails);
+  if (url.pathname === '/__authfail') { authFail = url.searchParams.get('on') === '1'; return send(200, { ok: true }); }
   if (url.pathname === '/__reset') { transactions = []; messages.length = 0; calls.length = 0; emails.length = 0; programs = { joined: [], notjoined: [], groups: {}, details: {} }; return send(200, { ok: true }); }
 
   if (url.pathname.startsWith('/publishers/')) {
     calls.push(url.pathname);
-    if (req.headers.authorization !== 'Bearer test-awin-token') return send(401, { error: 'unauthorized' });
+    if (authFail || req.headers.authorization !== 'Bearer test-awin-token') return send(401, { error: 'unauthorized' });
   }
   if (/^\/publishers\/\d+\/programmes$/.test(url.pathname)) {
     const rel = url.searchParams.get('relationship');
@@ -47,7 +49,7 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (/^\/publishers\/\d+\/transactions\/?$/.test(url.pathname)) {
-    if (req.headers.authorization !== 'Bearer test-awin-token') return send(401, { error: 'unauthorized' });
+    if (authFail || req.headers.authorization !== 'Bearer test-awin-token') return send(401, { error: 'unauthorized' });
     const ids = url.searchParams.get('ids');
     if (ids) {
       const wanted = new Set(ids.split(','));

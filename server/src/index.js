@@ -131,7 +131,26 @@ async function runSync(env) {
     await saveSetting(env, key, value);
     out[key] = value;
   }
+  await checkAwinAuth(env, out);
   return out;
+}
+
+// Se Awin rifiuta il token (401/403) l'admin riceve un avviso sul bot, al massimo ogni 12 ore,
+// e un secondo messaggio quando il collegamento torna a funzionare.
+async function checkAwinAuth(env, out) {
+  const errors = Object.values(out).map((v) => (v && v.error) || '').filter(Boolean).join(' ');
+  const authFailed = /Awin API (401|403)/.test(errors);
+  const state = (await readSetting(env, 'awin_auth_alert')) || {};
+  if (authFailed) {
+    const last = state.at ? Date.parse(state.at) : 0;
+    if (!state.failing || Date.now() - last > 12 * 3600 * 1000) {
+      await notifyAdmins(env, "Awin non accetta più il token API del server (errore 401): vendite e nuove approvazioni non vengono lette.\n\nPer sistemare: su Awin, menu utente > API Credentials > Show my API token, copia il token; su Cloudflare, Worker cashback-bot > Impostazioni > Variabili e segreti > AWIN_API_TOKEN > Modifica, incolla e distribuisci. Poi nella Mini App premi \"Aggiorna negozi da Awin ora\".");
+      await saveSetting(env, 'awin_auth_alert', { failing: true, at: new Date().toISOString() });
+    }
+  } else if (state.failing && !errors) {
+    await notifyAdmins(env, 'Il collegamento con Awin funziona di nuovo: vendite e negozi sono aggiornati.');
+    await saveSetting(env, 'awin_auth_alert', { failing: false, at: new Date().toISOString() });
+  }
 }
 
 // ------------------------------------------------- segreti e impostazioni
