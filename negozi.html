@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Negozi partner: Cashback Italia</title>
+    <meta name="description" content="I negozi partner di Cashback Italia: per ognuno quanto paga, quanto cashback ricevi, i tempi medi e le regole del suo programma di affiliazione.">
+    <meta name="theme-color" content="#0e5a45">
+    <link rel="stylesheet" href="site.css">
+</head>
+<body>
+<header class="site-header">
+    <div class="inner">
+        <a class="brand" href="./">
+            <svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="15" fill="#f3b63c"/><path d="M21.5 11.2A7 7 0 1 0 23 16" fill="none" stroke="#3a2a05" stroke-width="2.6" stroke-linecap="round"/><path d="M18.6 10.2l3.3 1.1-1.1 3.3" fill="none" stroke="#3a2a05" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Cashback Italia
+        </a>
+        <nav class="site-nav" aria-label="Sezioni del sito">
+            <a href="negozi.html" aria-current="page">Negozi</a>
+            <a href="chi-siamo.html">Chi siamo</a>
+            <a href="chi-siamo.html#domande">Domande</a>
+            <a href="https://t.me/MioCashback_bot">Apri il bot</a>
+        </nav>
+    </div>
+</header>
+<main class="page">
+    <h1>Negozi partner</h1>
+    <p class="lead">Per ogni negozio trovi quanto ci paga, quanto cashback ricevi tu, i tempi medi e le regole del suo programma di affiliazione. Per ricevere il cashback apri il negozio dal bot <a href="https://t.me/MioCashback_bot">@MioCashback_bot</a>.</p>
+    <p class="tiny" id="summary">Caricamento dei negozi...</p>
+    <div id="stores"></div>
+    <noscript><p class="card">Per vedere l'elenco dei negozi serve JavaScript. Puoi vederlo anche nella Mini App di <a href="https://t.me/MioCashback_bot">@MioCashback_bot</a>.</p></noscript>
+    <div class="cta-row">
+        <a class="btn btn-coin" href="https://t.me/MioCashback_bot">Apri il bot su Telegram</a>
+        <a class="btn btn-brand" href="chi-siamo.html">Chi siamo</a>
+    </div>
+</main>
+<footer class="site-footer">
+    <div class="inner">
+        <p>Cashback Italia è un servizio gestito da Alessandro Darida. I link verso i negozi sono link di affiliazione: il negozio ci paga una commissione sui tuoi acquisti e la parte più grande è tua.</p>
+        <p><a href="negozi.html">Negozi</a><a href="chi-siamo.html">Chi siamo</a><a href="termini.html">Termini</a><a href="privacy.html">Privacy</a></p>
+    </div>
+</footer>
+<script>
+    const API = 'https://cashback-bot.alelimpo.workers.dev/api/stores';
+    const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
+    const day = (s) => { if (!s) return ''; const d = new Date(String(s).replace(' ', 'T')); return isNaN(d) ? '' : d.toLocaleDateString('it-IT'); };
+    const list = (items) => { const ul = el('ul'); items.forEach((t) => ul.append(el('li', '', t))); return ul; };
+
+    function logo(s) {
+        const box = el('div', 'logo');
+        const mono = () => { box.className = 'logo mono'; box.replaceChildren(document.createTextNode(s.name.charAt(0).toUpperCase())); };
+        if (s.logo) { const img = el('img'); img.alt = ''; img.loading = 'lazy'; img.src = s.logo; img.addEventListener('error', mono); box.append(img); } else mono();
+        return box;
+    }
+
+    function storeCard(s, p) {
+        const card = el('section', 'store');
+        card.id = s.id;
+        const head = el('div', 'store-head');
+        const t = el('div');
+        t.append(el('h2', 'store-name', s.name), el('p', 'store-rate', 'Cashback ' + s.cashbackLabel), el('p', 'tiny', s.category || ''));
+        t.querySelectorAll('p').forEach((n) => { n.style.margin = '0'; });
+        head.append(logo(s), t);
+        card.append(head);
+
+        const table = el('table', 'rates');
+        const hr = el('tr');
+        hr.append(el('th', '', 'Categoria'), el('th', '', 'Commissione'), el('th', '', 'A te'));
+        table.append(hr);
+        for (const r of s.rates || []) {
+            const zero = r.youGet === '0%' || r.youGet === '0,00 €';
+            const tr = el('tr');
+            tr.append(el('td', '', r.label), el('td', 'muted', r.storePays), el('td', zero ? 'muted' : 'you', zero ? 'nessuno' : r.youGet));
+            table.append(tr);
+        }
+        card.append(table, el('p', 'tiny', 'La commissione è quello che il negozio paga a noi: a te ne va il ' + p.userSharePercent + '%.'));
+
+        const more = el('details');
+        more.append(el('summary', '', 'Tempi e regole'));
+        const tm = s.timing || {};
+        const when = [];
+        if (tm.validationDays) when.push('Il negozio conferma gli ordini in media in ' + tm.validationDays + ' giorni.');
+        if (tm.avgPaymentDays) when.push('In media il cashback diventa prelevabile ' + tm.avgPaymentDays + ' giorni dopo l\'acquisto.');
+        else when.push('Non c\'è ancora un tempo medio di pagamento per questo negozio.');
+        if (tm.approvalPercent != null) when.push('In media il negozio conferma il ' + String(tm.approvalPercent).replace('.', ',') + '% degli ordini.');
+        if (tm.payment && tm.payment.text) when.push(tm.payment.text);
+        more.append(el('h3', '', 'Quando arriva'), list(when));
+
+        const r = s.rules || {};
+        const rules = [];
+        if (r.cookieDays === 1) rules.push('Completa l\'acquisto entro 24 ore dal clic.');
+        else if (r.cookieDays) rules.push('Completa l\'acquisto entro ' + r.cookieDays + ' giorni dal clic.');
+        if (r.appTracking === false) rules.push('Gli acquisti dall\'app del negozio non vengono registrati: compra nel browser.');
+        else if (r.appTracking === true) rules.push('Il negozio registra anche gli acquisti dalla sua app, se la apri dal nostro link.');
+        if (r.commissionBase) rules.push('La percentuale si calcola sul ' + r.commissionBase + '.');
+        if (r.excludedProducts) rules.push('Alcuni prodotti sono esclusi dal cashback.');
+        (r.notes || []).forEach((n) => rules.push(n));
+        if (rules.length) more.append(el('h3', '', 'Regole'), list(rules));
+        if (r.declineReasons && r.declineReasons.length) more.append(el('h3', '', 'Il negozio può annullare il cashback se'), list(r.declineReasons));
+        more.append(el('p', 'tiny', 'Fonte: programma di affiliazione del negozio' + (s.updatedAt ? ', dati del ' + day(s.updatedAt) : '') + '.'));
+        card.append(more);
+        return card;
+    }
+
+    fetch(API).then((res) => res.json()).then(({ stores, program }) => {
+        const p = program || { userSharePercent: 60 };
+        const box = document.getElementById('stores');
+        stores.sort((a, b) => a.name.localeCompare(b.name, 'it'));
+        stores.forEach((s) => box.append(storeCard(s, p)));
+        document.getElementById('summary').textContent = stores.length === 1 ? '1 negozio partner.' : stores.length + ' negozi partner. L\'elenco si aggiorna da solo quando un nuovo negozio accetta la collaborazione.';
+        if (location.hash) { const t = document.getElementById(location.hash.slice(1)); if (t) t.scrollIntoView(); }
+    }).catch(() => {
+        document.getElementById('summary').textContent = 'Non riusciamo a caricare i negozi in questo momento: riprova tra poco o apri il bot.';
+    });
+</script>
+</body>
+</html>
