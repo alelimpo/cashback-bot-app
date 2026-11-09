@@ -98,6 +98,8 @@ export default {
         case 'POST /api/admin/withdrawals/update': res = await handleAdminUpdate(request, env, ctx); break;
         case 'POST /api/admin/setup': res = await handleAdminSetup(request, env); break;
         case 'POST /api/admin/sync': res = await handleAdminSync(request, env); break;
+        case 'POST /api/admin/stores': res = await handleAdminStores(request, env); break;
+        case 'POST /api/admin/stores/visibility': res = await handleAdminStoreVisibility(request, env); break;
         case 'POST /api/store-request': res = await handleStoreRequest(request, env, ctx); break;
         case 'POST /api/admin/store-requests': res = await handleAdminStoreRequests(request, env); break;
         case 'POST /api/admin/store-requests/update': res = await handleAdminStoreRequestUpdate(request, env, ctx); break;
@@ -957,6 +959,30 @@ async function handleAdminUpdate(request, env, ctx) {
   return json({ ok: true });
 }
 
+// Negozi attivi con la loro visibilita' nella Mini App, per l'area admin.
+async function handleAdminStores(request, env) {
+  await requireAdmin(request, env);
+  const { results } = await env.DB.prepare(`SELECT ${STORE_COLUMNS} FROM stores WHERE active = 1 ORDER BY sort, name`).all();
+  return json({
+    stores: results.map((s) => {
+      const v = buildStoreView(s, env);
+      const d = parseJson(s.details, {});
+      return { id: s.id, name: s.name, category: s.category, region: d.region || null, hidden: v.hidden, hasRates: v.hasRates, cashbackLabel: v.cashbackLabel };
+    }),
+  });
+}
+
+async function handleAdminStoreVisibility(request, env) {
+  const { body } = await requireAdmin(request, env);
+  const id = String(body.id || '');
+  const hidden = body.hidden === true;
+  const res = await env.DB.prepare(
+    "UPDATE stores SET details = json_set(COALESCE(details, '{}'), '$.hidden', json(?)) WHERE id = ?"
+  ).bind(hidden ? 'true' : 'false', id).run();
+  if (!res.meta || !res.meta.changes) throw new HttpError(404, 'store_not_found');
+  return json({ ok: true, id, hidden });
+}
+
 // "Aggiorna ora": stesso giro del cron, al massimo una volta ogni 2 minuti (limiti dell'API Awin).
 async function handleAdminSync(request, env) {
   await requireAdmin(request, env);
@@ -1187,17 +1213,22 @@ export async function syncPrograms(env) {
   // dal sito Awin): vengono aggiunti da soli con nome, domini e categoria presi da Awin.
   const known = new Set(stores.map((s) => Number(s.awin_mid)));
   const added = [];
+  const addedHidden = [];
   if (String(env.AUTO_ACTIVATE_STORES || 'true') !== 'false') {
     for (const p of joined) {
       if (!p || !p.id || known.has(Number(p.id))) continue;
       const row = catalogRowFromProgramme(p, stores);
       if (!row) continue;
+      // Un negozio che non e' italiano parte nascosto: spesso non spedisce in Italia o vende in
+      // un'altra lingua. L'admin puo' mostrarlo dalla Mini App.
+      const foreign = row.region && row.region !== 'IT';
+      const details = { autoAdded: true, region: row.region, ...(foreign ? { hidden: true } : {}) };
       await env.DB.prepare(
-        "INSERT OR IGNORE INTO stores (id, name, awin_mid, domains, category, rate_type, rate_max, active, sort) VALUES (?, ?, ?, ?, ?, 'percent', 0, 0, 200)"
-      ).bind(row.id, row.name, Number(p.id), row.domains, row.category).run();
+        "INSERT OR IGNORE INTO stores (id, name, awin_mid, domains, category, rate_type, rate_max, active, sort, details) VALUES (?, ?, ?, ?, ?, 'percent', 0, 0, 200, ?)"
+      ).bind(row.id, row.name, Number(p.id), row.domains, row.category, JSON.stringify(details)).run();
       stores.push({ id: row.id, name: row.name, awin_mid: Number(p.id), domains: row.domains, active: 0, awin_info_at: null, awin_status: null });
       known.add(Number(p.id));
-      added.push(row.name);
+      (foreign ? addedHidden : added).push(foreign ? `${row.name} (${row.region})` : row.name);
     }
   }
 
@@ -1233,7 +1264,7 @@ export async function syncPrograms(env) {
   if (newlyRejected.length) {
     await notifyAdmins(env, `Richiesta rifiutata su Awin da: ${newlyRejected.join(', ')}. Il motivo arriva per email; se lo correggi puoi riprovare dal profilo del negozio su Awin (icona +), meglio dopo aver scritto al negozio.`);
   }
-  if (turnedOn.length) await notifyAdmins(env, `Awin ti ha approvato: ${turnedOn.join(', ')}. ${turnedOn.length === 1 ? 'Compare' : 'Compaiono'} nella Mini App appena il server legge le commissioni (di solito entro un'ora).${added.length ? `\nAggiunti da soli al catalogo: ${added.join(', ')}.` : ''}`);
+  if (turnedOn.length) await notifyAdmins(env, `Awin ti ha approvato: ${turnedOn.join(', ')}. ${turnedOn.length === 1 ? 'Compare' : 'Compaiono'} nella Mini App appena il server legge le commissioni (di solito entro un'ora).${added.length ? `\nAggiunti da soli al catalogo: ${added.join(', ')}.` : ''}${addedHidden.length ? `\nAggiunti ma nascosti perché non sono negozi italiani: ${addedHidden.join(', ')}. Se vuoi mostrarli usa la sezione Admin della Mini App.` : ''}`);
   if (turnedOff.length) await notifyAdmins(env, `Iscrizione non più attiva su Awin: ${turnedOff.join(', ')}. ${turnedOff.length === 1 ? 'Il negozio è stato nascosto' : 'I negozi sono stati nascosti'} dalla Mini App.`);
   const resolvedRequests = activated.length ? await resolveRequestsForStores(env, activated) : 0;
 
@@ -1279,7 +1310,7 @@ export async function syncPrograms(env) {
       failed.push(`${s.id}: ${String(err && err.message ? err.message : err)}`);
     }
   }
-  return { joined: joinedIds.size, rejected: rejectedIds.size, seeded, added, turnedOn, turnedOff, newlyRejected, resolvedRequests, refreshed, failed };
+  return { joined: joinedIds.size, rejected: rejectedIds.size, seeded, added, addedHidden, turnedOn, turnedOff, newlyRejected, resolvedRequests, refreshed, failed };
 }
 
 // Negozi a cui hai chiesto l'iscrizione (src/catalog.json): a ogni giro il server aggiunge al
@@ -1332,7 +1363,10 @@ export function cleanProgrammeName(name) {
 }
 
 function catalogRowFromProgramme(p, stores) {
-  const name = cleanProgrammeName(p.name) || String(p.name || '').trim();
+  const regionCode = String((p.primaryRegion && p.primaryRegion.countryCode) || '').toUpperCase();
+  let name = cleanProgrammeName(p.name) || String(p.name || '').trim();
+  // "Lapert CZ" -> "Lapert": la sigla del paese finisce gia' nella regione.
+  if (regionCode && new RegExp(`[\\s_-]+${regionCode}$`, 'i').test(name)) name = name.replace(new RegExp(`[\\s_-]+${regionCode}$`, 'i'), '');
   if (!name) return null;
   const base = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || `awin-${p.id}`;
   const taken = new Set(stores.map((s) => s.id));
@@ -1347,7 +1381,7 @@ function catalogRowFromProgramme(p, stores) {
   if (!domains.size) return null;
   const sector = String(p.primarySector || '');
   const category = (SECTOR_IT.find(([re]) => re.test(sector)) || [null, 'Altro'])[1];
-  return { id, name, domains: [...domains].slice(0, 6).join(','), category };
+  return { id, name, domains: [...domains].slice(0, 6).join(','), category, region: regionCode || null };
 }
 
 export async function syncAwin(env) {

@@ -420,6 +420,11 @@
                 <p class="muted small" id="adminEmpty" hidden>Nessuna richiesta in attesa.</p>
             </div>
             <div class="card">
+                <h3>Negozi attivi</h3>
+                <p class="muted small" style="margin:4px 0 10px">Tutti i programmi approvati. I negozi non italiani aggiunti da soli partono nascosti: decidi tu se mostrarli.</p>
+                <div id="storeAdminList"></div>
+            </div>
+            <div class="card">
                 <h3>Segnalazioni dei negozi</h3>
                 <p class="muted small" style="margin:4px 0 10px">Raggruppate per negozio, prima le più richieste. La risposta arriva a tutti quelli che l'hanno chiesto.</p>
                 <div id="reqAdminList"></div>
@@ -1202,10 +1207,31 @@
         async function loadAdmin() {
             const list = $('adminList');
             const rl = $('reqAdminList');
-            let data, reqs;
+            let data, reqs, shops;
             try {
-                [data, reqs] = await Promise.all([api('/api/admin/withdrawals', {}), api('/api/admin/store-requests', {})]);
+                [data, reqs, shops] = await Promise.all([api('/api/admin/withdrawals', {}), api('/api/admin/store-requests', {}), api('/api/admin/stores', {})]);
             } catch (e) { toast(errorText(e), true); return; }
+            const sl = $('storeAdminList');
+            sl.replaceChildren();
+            for (const st of shops.stores) {
+                const row = el('div', 'admin-group');
+                const top = el('div', 'tx-top');
+                const label = st.hidden ? ['Nascosto', 'danger'] : st.hasRates ? ['Visibile', 'pos'] : ['In attesa delle commissioni', 'warn'];
+                top.append(el('p', 'tx-store', st.name), el('span', 'pill ' + label[1], label[0]));
+                row.append(top, el('p', 'tiny', [st.category, st.region && st.region !== 'IT' ? 'negozio estero (' + st.region + ')' : null, st.hasRates ? 'cashback ' + st.cashbackLabel : null].filter(Boolean).join(', ')));
+                const b = el('button', 'btn btn-soft btn-small', st.hidden ? 'Mostra nella Mini App' : 'Nascondi');
+                b.style.marginTop = '8px';
+                b.addEventListener('click', async () => {
+                    b.disabled = true;
+                    try {
+                        await api('/api/admin/stores/visibility', { id: st.id, hidden: !st.hidden });
+                        toast(st.name + (st.hidden ? ' ora è visibile.' : ' ora è nascosto.'));
+                        load();
+                    } catch (e) { toast(errorText(e), true); b.disabled = false; }
+                });
+                row.append(b);
+                sl.append(row);
+            }
             list.replaceChildren();
             $('adminEmpty').hidden = data.withdrawals.length > 0;
             for (const w of data.withdrawals) {

@@ -511,10 +511,17 @@ await step('cron: negozi accesi e spenti da soli in base alle iscrizioni Awin', 
   // Approvati Unieuro, Italo e zooplus (seconda ondata), Temu chiuso; Ikea approvato ma non nel catalogo.
   await setPrograms({
     ...PROGRAMS,
-    joined: [9449, 9418, 10139, 9685, 9500, 88888],
+    joined: [9449, 9418, 10139, 9685, 9500, 88888, 88889],
     rejected: [9690, 12427], // JD Sports e Tiqets rifiutano
-    info: { 88888: { name: 'Ikea IT', primarySector: 'Home & Garden', displayUrl: 'https://www.ikea.com/it/it/', validDomains: [{ domain: '*.ikea.com' }] } },
-    groups: { ...PROGRAMS.groups, 88888: [{ groupId: 9, groupCode: 'DEFAULT', groupName: 'Default', type: 'percentage', percentage: 3 }] },
+    info: {
+      88888: { name: 'Ikea IT', primarySector: 'Home & Garden', displayUrl: 'https://www.ikea.com/it/it/', validDomains: [{ domain: '*.ikea.com' }], primaryRegion: { countryCode: 'IT' } },
+      88889: { name: 'Lunzo HU', primarySector: 'Entertainment Superstore', displayUrl: 'https://www.lunzo.hu/', validDomains: [{ domain: 'lunzo.hu' }], primaryRegion: { countryCode: 'HU' } },
+    },
+    groups: {
+      ...PROGRAMS.groups,
+      88888: [{ groupId: 9, groupCode: 'DEFAULT', groupName: 'Default', type: 'percentage', percentage: 3 }],
+      88889: [{ groupId: 10, groupCode: 'DEFAULT', groupName: 'Default', type: 'percentage', percentage: 1.5 }],
+    },
   });
   await runCron();
   const r = await call('/api/me', { initData: initData(bruno) });
@@ -540,6 +547,7 @@ await step('cron: negozi accesi e spenti da soli in base alle iscrizioni Awin', 
   const msgs = (await messages()).slice(before);
   assert.ok(msgs.some((m) => String(m.chat_id) === '111' && m.text.includes('Awin ti ha approvato') && m.text.includes('Unieuro')));
   assert.ok(msgs.some((m) => String(m.chat_id) === '111' && m.text.includes('Aggiunti da soli al catalogo: Ikea')));
+  assert.ok(msgs.some((m) => String(m.chat_id) === '111' && m.text.includes('Aggiunti ma nascosti perché non sono negozi italiani: Lunzo (HU)')));
   assert.ok(msgs.some((m) => String(m.chat_id) === '111' && m.text.includes('Richiesta rifiutata su Awin') && m.text.includes('JD Sports') && m.text.includes('Tiqets')));
   // Un negozio che ha rifiutato non e' "in arrivo" per chi lo segnala.
   const jd = await call('/api/store-request', { initData: initData(alice), storeName: 'JD Sports' });
@@ -547,7 +555,7 @@ await step('cron: negozi accesi e spenti da soli in base alle iscrizioni Awin', 
   assert.equal(jd.data.status, 'new');
   assert.equal(jd.data.comingSoon, null);
   const setup = await call('/api/admin/setup', { initData: initData(alice) });
-  assert.equal(setup.data.checks.programmes.joined, 6);
+  assert.equal(setup.data.checks.programmes.joined, 7);
   assert.equal(setup.data.checks.programmes.rejected, 2);
   // Al giro successivo nessun nuovo avviso di rifiuto.
   const n = (await messages()).length;
@@ -605,6 +613,25 @@ await step('token Awin revocato: un solo avviso all\'admin, poi conferma quando 
   await runCron();
   sent = (await messages()).slice(n).filter((m) => String(m.chat_id) === '111');
   assert.ok(sent.some((m) => m.text.includes('funziona di nuovo')));
+});
+
+await step('admin: negozio estero nascosto, poi mostrato e di nuovo nascosto', async () => {
+  let r = await call('/api/admin/stores', { initData: initData(bruno) });
+  assert.equal(r.status, 403);
+  r = await call('/api/admin/stores', { initData: initData(alice) });
+  const lunzo = r.data.stores.find((s) => s.id === 'lunzo');
+  assert.ok(lunzo, 'nel catalogo');
+  assert.equal(lunzo.region, 'HU');
+  assert.equal(lunzo.hidden, true);
+  assert.equal(lunzo.hasRates, true);
+  assert.equal((await call('/api/stores')).data.stores.find((s) => s.id === 'lunzo'), undefined);
+  r = await call('/api/admin/stores/visibility', { initData: initData(alice), id: 'lunzo', hidden: false });
+  assert.equal(r.status, 200);
+  assert.ok((await call('/api/stores')).data.stores.find((s) => s.id === 'lunzo'), 'ora visibile');
+  await call('/api/admin/stores/visibility', { initData: initData(alice), id: 'lunzo', hidden: true });
+  assert.equal((await call('/api/stores')).data.stores.find((s) => s.id === 'lunzo'), undefined);
+  r = await call('/api/admin/stores/visibility', { initData: initData(alice), id: 'non-esiste', hidden: true });
+  assert.equal(r.status, 404);
 });
 
 await step('elenco negozi pubblico senza login', async () => {
