@@ -1346,6 +1346,11 @@
             if (s.salesCancelled) notes.push(s.salesCancelled + ' acquisti annullati dai negozi.');
             if (s.newsOptOut) notes.push(s.newsOptOut + ' non ricevono i messaggi a tutti (/stop).');
             if (s.lastBroadcast) notes.push('Ultimo messaggio a tutti: ' + day(s.lastBroadcast.at) + '.');
+            const SOURCE = { canale: 'canale', offerta: 'offerta condivisa', negozio: 'negozio condiviso', invito: 'invito', diretto: 'bot aperto direttamente' };
+            if (s.sources && s.sources.length) {
+                notes.push('Da dove arrivano i nuovi utenti (30 giorni): ' + s.sources.map((x) => x.source.split('+').map((k) => SOURCE[k] || k).join(' con invito') + ' ' + x.users).join(', ') + '.');
+            }
+            if (s.channel) notes.push('Canale ' + s.channel.name + ': ' + s.channel.posted + (s.channel.posted === 1 ? ' offerta pubblicata' : ' offerte pubblicate') + (s.channel.lastAt ? ', ultima il ' + day(s.channel.lastAt) : '') + '.');
             $('statTop').textContent = notes.join(' ');
             $('statsCard').hidden = false;
         }
@@ -1510,6 +1515,7 @@
                 const line = (ok, text) => out.append(el('p', ok ? 'ok-line' : 'ko-line', (ok ? '✓ ' : '✗ ') + text));
                 line(r.telegram.webhook.ok, 'Bot collegato al server' + (r.telegram.webhook.ok ? '' : ': ' + (r.telegram.webhook.description || 'errore')));
                 line(r.telegram.menuButton.ok, 'Il pulsante menu del bot apre la Mini App' + (r.telegram.menuButton.ok ? '' : ': ' + (r.telegram.menuButton.description || 'errore')));
+                if (r.telegram.channel) line(r.telegram.channel.ok, 'Canale ' + r.telegram.channel.name + (r.telegram.channel.ok ? ': il bot può pubblicare' : ': ' + r.telegram.channel.description));
                 if (r.telegram.commands) line(r.telegram.commands.ok, 'Comandi del bot impostati (/negozi, /aiuto, /stop)' + (r.telegram.commands.ok ? '' : ': ' + (r.telegram.commands.description || 'errore')));
                 line(r.checks.awinApiToken, r.checks.awinApiToken ? 'Token API Awin impostato' : 'Manca il token API Awin');
                 line(!!r.checks.botUsername, r.checks.botUsername ? 'Link di invito attivi (@' + r.checks.botUsername + ')' : 'Manca BOT_USERNAME: link di invito spenti');

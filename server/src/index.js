@@ -135,10 +135,10 @@ export default {
 // oppure dal pulsante "Aggiorna ora" nell'area admin.
 async function runSync(env, { forceOffers = false } = {}) {
   const out = {};
-  for (const [key, fn] of [['last_sync', syncAwin], ['last_programs_sync', syncPrograms], ['last_offers_sync', syncOffers]]) {
+  for (const [key, fn] of [['last_sync', syncAwin], ['last_programs_sync', syncPrograms], ['last_offers_sync', syncOffers], ['last_channel_post', postToChannel]]) {
     let value;
     try {
-      value = { at: new Date().toISOString(), ...(await fn(env, { force: forceOffers })) };
+      value = { at: new Date().toISOString(), ...(await fn(env, key === 'last_offers_sync' ? { force: forceOffers } : {})) };
     } catch (err) {
       console.error(`${key} fallita`, err);
       value = { at: new Date().toISOString(), error: String(err && err.message ? err.message : err) };
@@ -153,7 +153,7 @@ async function runSync(env, { forceOffers = false } = {}) {
 // Se Awin rifiuta il token (401/403) l'admin riceve un avviso sul bot, al massimo ogni 12 ore,
 // e un secondo messaggio quando il collegamento torna a funzionare.
 async function checkAwinAuth(env, out) {
-  const errors = Object.values(out).map((v) => (v && v.error) || '').filter(Boolean).join(' ');
+  const errors = Object.entries(out).filter(([k]) => k !== 'last_channel_post').map(([, v]) => (v && v.error) || '').filter(Boolean).join(' ');
   const authFailed = /Awin API (401|403)/.test(errors);
   const state = (await readSetting(env, 'awin_auth_alert')) || {};
   if (authFailed) {
@@ -1188,8 +1188,17 @@ async function handleAdminStats(request, env) {
       WHERE c.created_at > datetime('now', '-30 days') GROUP BY s.name ORDER BY clicks DESC LIMIT 5`
   ).all();
   await ensureNewsTable(env);
+  await ensureSourcesTable(env);
   const optOut = (await env.DB.prepare('SELECT COUNT(*) AS n FROM news_optout').first()).n;
-  return json({ ...t, marginCents: t.commissionCents - t.userCents, topStores, newsOptOut: optOut, lastBroadcast: await readSetting(env, 'last_broadcast') });
+  const { results: sources } = await env.DB.prepare(
+    "SELECT source, COUNT(*) AS users FROM user_sources WHERE created_at > datetime('now', '-30 days') GROUP BY source ORDER BY users DESC"
+  ).all();
+  const ch = (await readSetting(env, 'channel_state')) || {};
+  return json({
+    ...t, marginCents: t.commissionCents - t.userCents, topStores, sources, newsOptOut: optOut,
+    lastBroadcast: await readSetting(env, 'last_broadcast'),
+    channel: env.NEWS_CHANNEL ? { name: env.NEWS_CHANNEL, posted: (ch.posted || []).length, lastAt: ch.lastAt || null } : null,
+  });
 }
 
 async function ensureNewsTable(env) {
@@ -1271,6 +1280,15 @@ async function handleAdminSetup(request, env) {
     : { ok: false, description: 'MINI_APP_URL non impostato' };
   // Comandi suggeriti da Telegram quando l'utente scrive "/" nella chat del bot.
   const commands = await tgCall(env, 'setMyCommands', { commands: BOT_COMMANDS });
+  // Canale delle offerte: il bot deve esserne amministratore con il permesso di pubblicare.
+  let channel = null;
+  if (env.NEWS_CHANNEL) {
+    const botId = Number(String(env.TELEGRAM_BOT_TOKEN || '').split(':')[0]);
+    const member = await tgCall(env, 'getChatMember', { chat_id: env.NEWS_CHANNEL, user_id: botId });
+    const m = member.result || {};
+    const ok = !!member.ok && (m.status === 'creator' || (m.status === 'administrator' && m.can_post_messages !== false));
+    channel = { ok, name: env.NEWS_CHANNEL, description: ok ? null : member.description || 'il bot non è amministratore del canale con il permesso di pubblicare' };
+  }
 
   return json({
     awinNotifyUrl: notifySecret ? `${origin}/awin/notify/${notifySecret}` : null,
@@ -1278,6 +1296,7 @@ async function handleAdminSetup(request, env) {
       webhook: { ok: !!webhook.ok, description: webhook.description || null },
       menuButton: { ok: !!menuButton.ok, description: menuButton.description || null },
       commands: { ok: !!commands.ok, description: commands.description || null },
+      channel,
     },
     checks: {
       awinApiToken: !!env.AWIN_API_TOKEN,
@@ -1770,6 +1789,97 @@ async function notifyAdmins(env, text) {
   await Promise.all(ids.map((id) => tgSend(env, id, text)));
 }
 
+// ------------------------------------------------------ canale delle offerte
+
+// Canale pubblico (NEWS_CHANNEL, es. "@CashbackItaliaOfferte") dove il bot pubblica da solo le offerte:
+// una ogni CHANNEL_POST_HOURS ore, solo nelle ore di CHANNEL_HOURS (ora italiana), mai due volte la
+// stessa. Il pulsante porta al bot (start=o_ID__canale): ognuno riceve il suo link personale.
+function romeHour(date = new Date()) {
+  return Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Rome', hour: 'numeric', hourCycle: 'h23' }).format(date));
+}
+
+function escapeHtml(s) {
+  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function numberSetting(value, fallback) {
+  return value !== undefined && value !== null && value !== '' && Number.isFinite(Number(value)) ? Number(value) : fallback;
+}
+
+export function offerPost(o) {
+  const lines = [`<b>${escapeHtml(o.storeName)}: ${escapeHtml(o.title)}</b>`];
+  const desc = o.description && o.description.toLowerCase() !== o.title.toLowerCase()
+    ? (o.description.length > 220 ? `${o.description.slice(0, 217)}...` : o.description) : '';
+  if (desc) lines.push(escapeHtml(desc));
+  lines.push('');
+  if (o.code) lines.push(`Codice sconto: <code>${escapeHtml(o.code)}</code>`);
+  if (o.endDate) lines.push(`Valida fino al ${o.endDate.split('-').reverse().join('/')}`);
+  lines.push(`In più il cashback: ${escapeHtml(o.cashbackLabel)}, se apri il negozio dal pulsante qui sotto.`);
+  if (SEASONAL.test(o.title) && /black|cyber/i.test(o.title)) lines.push('', '#BlackFriday');
+  return lines.join('\n');
+}
+
+function channelIntro(env) {
+  const share = Math.round(userShare(env) * 100);
+  return `<b>Come funziona Cashback Italia</b>\n\nQui trovi le offerte dei nostri negozi partner. Sotto ogni offerta tocca «Apri con cashback»: il bot ti dà il tuo link personale, compri allo stesso prezzo e il ${share}% della commissione che il negozio ci paga torna a te.\n\nIl cashback diventa prelevabile quando il negozio conferma l'ordine e ci paga, di solito dopo qualche mese. Prelievo da ${escapeHtml(formatEuro(eurosToCents(env.MIN_PAYOUT_EUR, 1000)))} con PayPal o buono regalo. Percentuali, tempi e regole di ogni negozio sono nella Mini App del bot.`;
+}
+
+export async function postToChannel(env, { force = false } = {}) {
+  const channel = String(env.NEWS_CHANNEL || '').trim();
+  if (!channel || !env.TELEGRAM_BOT_TOKEN || !env.BOT_USERNAME) return { skipped: 'canale non impostato' };
+  const state = (await readSetting(env, 'channel_state')) || {};
+  if (state.channel !== channel) Object.assign(state, { channel, posted: [], lastAt: null, lastStore: null, introId: null });
+  const out = {};
+  const startLink = (payload) => `https://t.me/${env.BOT_USERNAME}?start=${payload}`;
+
+  // Prima volta: presentazione fissata in alto.
+  if (!state.introId) {
+    const res = await tgCall(env, 'sendMessage', {
+      chat_id: channel, text: channelIntro(env), parse_mode: 'HTML', link_preview_options: { is_disabled: true },
+      reply_markup: { inline_keyboard: [[{ text: 'Apri Cashback Italia', url: startLink('canale') }]] },
+    });
+    if (!res.ok) throw new Error(`Canale Telegram: ${res.description || 'invio non riuscito'}`);
+    state.introId = (res.result && res.result.message_id) || -1;
+    if (state.introId > 0) await tgCall(env, 'pinChatMessage', { chat_id: channel, message_id: state.introId, disable_notification: true });
+    await saveSetting(env, 'channel_state', state);
+    out.intro = true;
+  }
+
+  const [from, to] = String(env.CHANNEL_HOURS || '8-21').split('-').map((x) => numberSetting(x, NaN));
+  const every = numberSetting(env.CHANNEL_POST_HOURS, 3);
+  if (!force) {
+    const h = romeHour();
+    if (Number.isFinite(from) && Number.isFinite(to) && (h < from || h > to)) return { ...out, skipped: 'fuori orario' };
+    if (state.lastAt && Date.now() - Date.parse(state.lastAt) < (every * 3600 - 300) * 1000) return { ...out, skipped: 'troppo presto' };
+  }
+  const exclude = new Set(String(env.CHANNEL_EXCLUDE || '').split(',').map((x) => x.trim()).filter(Boolean));
+  const posted = new Set(state.posted || []);
+  const offers = (await listOffers(env, await listStores(env))).filter((o) => !exclude.has(o.storeId) && !posted.has(o.id));
+  const next = offers.find((o) => o.storeId !== state.lastStore) || offers[0];
+  if (!next) return { ...out, skipped: 'nessuna offerta nuova' };
+  const res = await tgCall(env, 'sendMessage', {
+    chat_id: channel, text: offerPost(next), parse_mode: 'HTML', link_preview_options: { is_disabled: true },
+    reply_markup: { inline_keyboard: [[{ text: 'Apri con cashback', url: startLink(`o_${next.id}__canale`) }]] },
+  });
+  if (!res.ok) throw new Error(`Canale Telegram: ${res.description || 'invio non riuscito'}`);
+  state.posted = [...(state.posted || []), next.id].slice(-300);
+  state.lastAt = new Date().toISOString();
+  state.lastStore = next.storeId;
+  await saveSetting(env, 'channel_state', state);
+  return { ...out, posted: next.id, store: next.storeName };
+}
+
+async function ensureSourcesTable(env) {
+  await env.DB.prepare(
+    "CREATE TABLE IF NOT EXISTS user_sources (user_id TEXT PRIMARY KEY, source TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')))"
+  ).run();
+}
+
+async function recordSource(env, userId, source) {
+  await ensureSourcesTable(env);
+  await env.DB.prepare('INSERT OR IGNORE INTO user_sources (user_id, source) VALUES (?, ?)').bind(String(userId), source).run();
+}
+
 const BOT_COMMANDS = [
   { command: 'negozi', description: 'Negozi con cashback e offerte del momento' },
   { command: 'aiuto', description: 'Come funziona il cashback' },
@@ -1825,7 +1935,13 @@ async function handleChatMessage(env, ctx, msg, text) {
     const parts = ((command[2] || '').split(/\s+/)[0] || '').split('__');
     const refPart = parts.find((p) => /^ref_/.test(p)) || null;
     const target = parts.find((p) => /^[so]_[a-z0-9-]{1,40}$/i.test(p)) || null;
+    const isNew = !(await env.DB.prepare('SELECT 1 AS x FROM users WHERE id = ?').bind(String(msg.from.id)).first());
     const user = await upsertUser(env, msg.from, refPart);
+    if (isNew) {
+      const via = parts.find((p) => /^(canale|via_[a-z0-9]{1,20})$/i.test(p));
+      const source = via ? via.replace(/^via_/, '') : target ? (target.startsWith('o_') ? 'offerta' : 'negozio') : refPart ? 'invito' : 'diretto';
+      await recordSource(env, user.id, refPart && source !== 'invito' ? `${source}+invito` : source);
+    }
     if (target && await replyWithTarget(env, chatId, user, target)) return;
     const share = Math.round(userShare(env) * 100);
     await tgSend(env, chatId,

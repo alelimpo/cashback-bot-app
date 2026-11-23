@@ -824,6 +824,43 @@ await step('link condivisi: offerta e negozio dal /start, con l\'invito di chi c
   assert.ok((await lastTo(555, n)).text.startsWith('Ciao!'), 'negozio sconosciuto: messaggio di benvenuto');
 });
 
+await step('canale: presentazione fissata una volta, poi un\'offerta nuova a ogni giro, senza ripetizioni', async () => {
+  const all = await messages();
+  const intros = all.filter((m) => m.chat_id === '@TestCanale' && m.method === 'sendMessage' && m.text.startsWith('<b>Come funziona'));
+  assert.equal(intros.length, 1, 'una sola presentazione');
+  assert.equal(all.filter((m) => m.method === 'pinChatMessage' && m.chat_id === '@TestCanale').length, 1);
+  const before = all.filter((m) => m.chat_id === '@TestCanale' && m.method === 'sendMessage' && !m.text.startsWith('<b>Come funziona')).map((m) => m.reply_markup.inline_keyboard[0][0].url);
+  await runCron();
+  await runCron();
+  const posts = (await messages()).filter((m) => m.chat_id === '@TestCanale' && m.method === 'sendMessage' && !m.text.startsWith('<b>Come funziona'));
+  const urls = posts.map((m) => m.reply_markup.inline_keyboard[0][0].url);
+  assert.ok(urls.length >= before.length + 2, 'due post nuovi');
+  assert.equal(new Set(urls).size, urls.length, 'nessuna offerta ripetuta');
+  assert.match(urls[0], /^https:\/\/t\.me\/TestCashbackBot\?start=o_\d+__canale$/);
+  const first = posts[0];
+  assert.equal(first.parse_mode, 'HTML');
+  assert.ok(first.text.includes('In più il cashback'));
+  const bf = posts.find((m) => m.text.includes('BF10'));
+  assert.ok(bf && bf.text.includes('<code>BF10</code>') && bf.text.includes('#BlackFriday'));
+  const st = await call('/api/admin/stats', { initData: initData(alice) });
+  assert.equal(st.data.channel.name, '@TestCanale');
+  assert.ok(st.data.channel.posted >= 3);
+});
+
+await step('fonti: chi arriva dal canale o da un\'offerta condivisa viene contato', async () => {
+  await hook(chat({ id: 666, first_name: 'Franco' }, '/start o_501__canale'));
+  await hook(chat({ id: 667, first_name: 'Gina' }, '/start canale'));
+  await hook(chat({ id: 668, first_name: 'Ugo' }, '/start'));
+  await hook(chat({ id: 666, first_name: 'Franco' }, '/start')); // gia' utente: non cambia fonte
+  const st = await call('/api/admin/stats', { initData: initData(alice) });
+  const by = Object.fromEntries(st.data.sources.map((x) => [x.source, x.users]));
+  assert.equal(by.canale, 2);
+  assert.equal(by.diretto >= 1, true);
+  assert.ok(by['offerta+invito'] >= 1, 'Elena: offerta condivisa con invito');
+  const setup = await call('/api/admin/setup', { initData: initData(alice) });
+  assert.equal(setup.data.telegram.channel.ok, true);
+});
+
 await step('configurazione: comandi del bot impostati', async () => {
   const n = (await messages()).length;
   const r = await call('/api/admin/setup', { initData: initData(alice) });

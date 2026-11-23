@@ -131,3 +131,10 @@ CREATE TABLE IF NOT EXISTS news_optout (
   user_id    TEXT PRIMARY KEY,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- Da dove arriva ogni nuovo utente (canale, offerta o negozio condiviso, invito, diretto).
+CREATE TABLE IF NOT EXISTS user_sources (
+  user_id    TEXT PRIMARY KEY,
+  source     TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);

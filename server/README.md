@@ -92,6 +92,13 @@ ricevono il messaggio. Il database già in uso va aggiornato una volta con `db-u
 - **Messaggio a tutti.** Area Admin > "Messaggio a tutti gli utenti": prima "Prova su di me", poi
   "Invia a tutti". Chi scrive /stop non li riceve più (/avvisi li riattiva).
 - **Numeri.** Area Admin > "Numeri": utenti, clic, acquisti e la tua parte delle commissioni.
+- **Canale delle offerte.** Con `NEWS_CHANNEL` in `wrangler.toml` (es. "@CashbackItaliaOfferte") il bot
+  pubblica da solo una presentazione fissata in alto e poi un'offerta ogni `CHANNEL_POST_HOURS` ore,
+  nelle ore di `CHANNEL_HOURS` (ora italiana), mai due volte la stessa. I negozi in `CHANNEL_EXCLUDE`
+  non vengono pubblicati (per esempio chi vieta i social nei suoi termini Awin). Il bot deve essere
+  amministratore del canale con "Pubblica messaggi" e "Modifica messaggi".
+- **Da dove arrivano gli utenti.** Ogni nuovo utente viene contato per fonte (canale, offerta o negozio
+  condiviso, invito, diretto): lo vedi in Admin > Numeri.
 - Dopo la pubblicazione premi una volta "Configura e verifica": imposta anche i comandi del bot.
 - `db-updates/0005_avvisi.sql` è facoltativo: la tabella di /stop viene creata da sola.
 

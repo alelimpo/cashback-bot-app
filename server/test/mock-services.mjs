@@ -76,7 +76,12 @@ const server = http.createServer(async (req, res) => {
   }
 
   const tg = /^\/bot[^/]+\/(\w+)$/.exec(url.pathname);
-  if (tg) { messages.push({ method: tg[1], ...JSON.parse(body || '{}') }); return send(200, { ok: true, result: true }); }
+  if (tg) {
+    messages.push({ method: tg[1], ...JSON.parse(body || '{}') });
+    if (tg[1] === 'sendMessage') return send(200, { ok: true, result: { message_id: messages.length } });
+    if (tg[1] === 'getChatMember') return send(200, { ok: true, result: { status: 'administrator', can_post_messages: true } });
+    return send(200, { ok: true, result: true });
+  }
 
   send(404, { error: 'not found' });
 });

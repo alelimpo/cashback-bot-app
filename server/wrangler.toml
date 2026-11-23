@@ -34,6 +34,14 @@ ADMIN_IDS = "410540302"
 BOT_USERNAME = "MioCashback_bot"
 # Facoltativo: link diretto della Mini App creata con BotFather (es. https://t.me/CashbackItaliaBot/app).
 TELEGRAM_APP_LINK = ""
+# Canale pubblico dove il bot pubblica da solo le offerte (es. "@CashbackItaliaOfferte"; vuoto = spento).
+# Il bot deve essere amministratore del canale con il permesso di pubblicare.
+NEWS_CHANNEL = ""
+# Un post ogni quante ore, e in quali ore (ora italiana).
+CHANNEL_POST_HOURS = "3"
+CHANNEL_HOURS = "8-21"
+# Negozi da non pubblicare sul canale (id separati da virgola): Vodafone vieta la promozione sui social.
+CHANNEL_EXCLUDE = "vodafone"
 
 # Segreti: NON scriverli qui (questo file e' pubblico su GitHub).
 # Si impostano nella dashboard Cloudflare: Worker cashback-bot > Impostazioni > Variabili e segreti,
