@@ -27,7 +27,7 @@ REFERRAL_BONUS_EUR = "2"
 FX_TO_EUR = '{"USD": 0.88, "GBP": 1.17, "DKK": 0.133}'
 # Indirizzo della Mini App su GitHub Pages (accetta solo richieste da qui).
 ALLOWED_ORIGIN = "https://cashback-italia.com,https://alelimpo.github.io"
-MINI_APP_URL = "https://alelimpo.github.io/cashback-bot-app/"
+MINI_APP_URL = "https://cashback-italia.com/app/"
 # Il tuo ID Telegram (numerico): vedi la sezione admin e ricevi gli avvisi di prelievo.
 ADMIN_IDS = "410540302"
 # Nome utente del bot senza @, per il link di invito (es. CashbackItaliaBot).
