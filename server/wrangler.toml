@@ -42,6 +42,8 @@ CHANNEL_POST_HOURS = "3"
 CHANNEL_HOURS = "8-21"
 # Negozi da non pubblicare sul canale (id separati da virgola): Vodafone vieta la promozione sui social.
 CHANNEL_EXCLUDE = "vodafone"
+# Google Search Console: file di verifica servito dal server (metodo "file HTML").
+GOOGLE_SITE_VERIFICATION_FILE = "googlea9c66a4a4f743bf9.html"
 
 # Segreti: NON scriverli qui (questo file e' pubblico su GitHub).
 # Si impostano nella dashboard Cloudflare: Worker cashback-bot > Impostazioni > Variabili e segreti,

@@ -2217,6 +2217,11 @@ function seasonalTitle(offers) {
 async function handleWeb(request, env, url) {
   const path = url.pathname.replace(/\/+$/, '') || '/';
   const origin = url.origin;
+  // Verifica di Google Search Console con il metodo "file HTML" (GOOGLE_SITE_VERIFICATION_FILE).
+  const gfile = String(env.GOOGLE_SITE_VERIFICATION_FILE || '');
+  if (/^google[a-z0-9]+\.html$/.test(gfile) && path === `/${gfile}`) {
+    return new Response(`google-site-verification: ${gfile}`, { headers: { 'content-type': 'text/html; charset=utf-8' } });
+  }
   if (path === '/robots.txt') {
     return new Response(`User-agent: *\nAllow: /\nDisallow: /api/\nSitemap: ${origin}/sitemap.xml\n`, { headers: { 'content-type': 'text/plain; charset=utf-8' } });
   }
