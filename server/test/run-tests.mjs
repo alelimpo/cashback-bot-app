@@ -158,7 +158,7 @@ await step('utente Alice creato, negozi attivi con cashback utente', async () =>
 
 await step('trasparenza: quota, percentuali per categoria, tempi e regole dalla scheda', async () => {
   const r = await call('/api/me', { initData: initData(alice) });
-  assert.deepEqual(r.data.program, { userSharePercent: 60, minPayoutCents: 1000, referralBonusCents: 200, payoutWorkingDays: 7 });
+  assert.deepEqual(r.data.program, { userSharePercent: 60, minPayoutCents: 1000, referralBonusCents: 200, payoutWorkingDays: 7, channel: 'TestCanale' });
   const douglas = r.data.stores.find((s) => s.id === 'douglas');
   assert.deepEqual(douglas.rates.map((x) => [x.label, x.storePays, x.youGet]), [
     ['Acquisti senza codice sconto', '12%', '7,2%'],
