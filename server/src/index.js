@@ -92,6 +92,11 @@ export default {
       // Endpoint chiamati da Awin e da Telegram: niente CORS, protetti da un segreto.
       if (url.pathname.startsWith('/awin/notify/')) return await handleAwinNotify(request, env, url, ctx);
       if (url.pathname === '/telegram/webhook') return await handleTelegramWebhook(request, env, ctx);
+      // Pagine pubbliche per i motori di ricerca.
+      if (request.method === 'GET' || request.method === 'HEAD') {
+        const page = await handleWeb(request, env, url);
+        if (page) return page;
+      }
 
       let res;
       const route = `${request.method} ${url.pathname}`;
@@ -2121,4 +2126,198 @@ async function replyWithStoreLink(env, chatId, user, view, destination, hadUrl) 
   if (view.rules && view.rules.appTracking === false) lines.push('Paga nel browser, non nell\'app del negozio: gli acquisti dall\'app non vengono registrati.');
   lines.push('', 'Il link è personale: se vuoi far risparmiare un amico, mandagli il tuo invito dalla Mini App.');
   await tgSend(env, chatId, lines.join('\n'), keyboard([[{ text: `Apri ${view.name}`, url: link }], appButton(env, 'Scheda del negozio e regole')]));
+}
+
+// ---------------------------------------------------- pagine pubbliche per Google
+// Home con le offerte, una pagina per ogni negozio, la pagina delle offerte, sitemap e robots.
+// I dati arrivano dal database a ogni richiesta, quindi le pagine sono sempre aggiornate.
+// I pulsanti portano al bot con start=..._via_web: i nuovi utenti vengono contati con fonte "web".
+
+const SITE = 'https://alelimpo.github.io/cashback-bot-app';
+const LOGO_SVG = '<svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="15" fill="#f3b63c"/><path d="M21.5 11.2A7 7 0 1 0 23 16" fill="none" stroke="#3a2a05" stroke-width="2.6" stroke-linecap="round"/><path d="M18.6 10.2l3.3 1.1-1.1 3.3" fill="none" stroke="#3a2a05" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+function attr(s) {
+  return escapeHtml(s).replace(/"/g, '&quot;');
+}
+
+function itDate(isoDay) {
+  return isoDay ? String(isoDay).slice(0, 10).split('-').reverse().join('/') : '';
+}
+
+function botStart(env, payload) {
+  return `https://t.me/${env.BOT_USERNAME || 'MioCashback_bot'}?start=${payload}`;
+}
+
+function htmlPage(env, origin, { path, title, description, body, current, status = 200 }) {
+  const links = [['/', 'Offerte', 'home'], ['/negozi', 'Negozi', 'negozi'], [`${SITE}/chi-siamo.html`, 'Chi siamo', ''], [botStart(env, 'via_web'), 'Apri il bot', '']];
+  const nav = links.map(([href, label, key]) => `<a href="${attr(href)}"${key && key === current ? ' aria-current="page"' : ''}>${label}</a>`).join('');
+  const html = `<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${escapeHtml(title)}</title>
+<meta name="description" content="${attr(description)}">
+<link rel="canonical" href="${attr(origin + path)}">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="it_IT">
+<meta property="og:title" content="${attr(title)}">
+<meta property="og:description" content="${attr(description)}">
+<meta property="og:url" content="${attr(origin + path)}">
+${env.GOOGLE_SITE_VERIFICATION ? `<meta name="google-site-verification" content="${attr(env.GOOGLE_SITE_VERIFICATION)}">\n` : ''}<meta name="theme-color" content="#0e5a45">
+<link rel="stylesheet" href="${SITE}/site.css">
+<style>.offer-code{display:inline-block;border:1.5px dashed var(--coin);border-radius:10px;padding:1px 10px;font-weight:800;letter-spacing:.04em}.store-link{color:var(--ink);text-decoration:none}.store-list{list-style:none;padding:0}.store-list li{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid var(--line);margin:0}.store-list li:first-child{border-top:0}</style>
+</head>
+<body>
+<header class="site-header"><div class="inner"><a class="brand" href="/">${LOGO_SVG}Cashback Italia</a><nav class="site-nav" aria-label="Sezioni del sito">${nav}</nav></div></header>
+<main class="page">
+${body}
+</main>
+<footer class="site-footer"><div class="inner">
+<p>Cashback Italia è un servizio gestito da Alessandro Darida. I link verso i negozi sono link di affiliazione: il negozio ci paga una commissione sui tuoi acquisti e la parte più grande è tua.</p>
+<p><a href="/">Offerte</a><a href="/negozi">Negozi</a><a href="${SITE}/chi-siamo.html">Chi siamo</a><a href="${SITE}/termini.html">Termini</a><a href="${SITE}/privacy.html">Privacy</a></p>
+</div></footer>
+</body>
+</html>`;
+  return new Response(html, { status, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'public, max-age=900' } });
+}
+
+function logoHtml(name, logo) {
+  return logo
+    ? `<div class="logo"><img src="${attr(logo)}" alt="" loading="lazy" width="52" height="52"></div>`
+    : `<div class="logo mono">${escapeHtml(String(name || '?').charAt(0).toUpperCase())}</div>`;
+}
+
+function howItWorksHtml(env) {
+  const share = Math.round(userShare(env) * 100);
+  return `<ol class="steps">
+<li><span class="step-n">1</span><div><b>Apri il negozio dal bot Telegram</b><br>Nella Mini App di @${escapeHtml(env.BOT_USERNAME || 'MioCashback_bot')} scegli il negozio, oppure manda al bot il link del prodotto.</div></li>
+<li><span class="step-n">2</span><div><b>Compra come sempre</b><br>Stesso sito, stessi prezzi, stesse offerte del negozio.</div></li>
+<li><span class="step-n">3</span><div><b>Ricevi la tua parte</b><br>Il negozio ci paga una commissione: il ${share}% è tuo. Quando il negozio conferma l'ordine la prelevi da ${escapeHtml(formatEuro(eurosToCents(env.MIN_PAYOUT_EUR, 1000)))} con PayPal o buono regalo.</div></li>
+</ol>`;
+}
+
+function offerCardHtml(env, o, withStore) {
+  const desc = o.description && o.description.toLowerCase() !== o.title.toLowerCase() ? `<p class="muted small">${escapeHtml(o.description)}</p>` : '';
+  const store = withStore
+    ? `<p class="store-name"><a class="store-link" href="/negozi/${attr(o.storeId)}">${escapeHtml(o.storeName)}</a></p>`
+    : `<p class="store-name">${escapeHtml(o.storeName)}</p>`;
+  return `<section class="store">
+<div class="store-head">${logoHtml(o.storeName, o.logo)}<div>${store}<p class="store-rate">+ cashback ${escapeHtml(o.cashbackLabel)}</p></div></div>
+<h3>${escapeHtml(o.title)}</h3>
+${desc}${o.code ? `<p>Codice sconto: <span class="offer-code">${escapeHtml(o.code)}</span></p>` : ''}${o.endDate ? `<p class="tiny">Valida fino al ${itDate(o.endDate)}</p>` : ''}
+<div class="cta-row"><a class="btn btn-coin" href="${attr(botStart(env, `o_${o.id}__via_web`))}">Apri l'offerta con cashback</a></div>
+</section>`;
+}
+
+function seasonalTitle(offers) {
+  return offers.some((o) => /black|cyber/i.test(o.title)) ? 'Offerte Black Friday' : 'Offerte del momento';
+}
+
+async function handleWeb(request, env, url) {
+  const path = url.pathname.replace(/\/+$/, '') || '/';
+  const origin = url.origin;
+  if (path === '/robots.txt') {
+    return new Response(`User-agent: *\nAllow: /\nDisallow: /api/\nSitemap: ${origin}/sitemap.xml\n`, { headers: { 'content-type': 'text/plain; charset=utf-8' } });
+  }
+  if (!['/', '/negozi', '/offerte', '/sitemap.xml'].includes(path) && !/^\/negozi\/[a-z0-9-]{1,60}$/.test(path)) return null;
+
+  const stores = await listStores(env);
+  const offers = await listOffers(env, stores);
+  const share = Math.round(userShare(env) * 100);
+
+  if (path === '/sitemap.xml') {
+    const day = new Date().toISOString().slice(0, 10);
+    const urls = ['/', '/offerte', '/negozi', ...stores.map((s) => `/negozi/${s.id}`)];
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.map((u) => `<url><loc>${escapeHtml(origin + u)}</loc><lastmod>${day}</lastmod></url>`).join('\n')}\n</urlset>\n`;
+    return new Response(xml, { headers: { 'content-type': 'application/xml; charset=utf-8', 'cache-control': 'public, max-age=3600' } });
+  }
+
+  if (path === '/') {
+    const top = offers.slice(0, 6);
+    const body = `<h1>Una parte della spesa online ti torna indietro</h1>
+<p class="lead">Compri nei negozi partner allo stesso prezzo e il ${share}% della commissione che il negozio ci paga torna a te. Funziona su Telegram ed è gratis.</p>
+<div class="cta-row"><a class="btn btn-coin" href="${attr(botStart(env, 'via_web'))}">Apri il bot su Telegram</a><a class="btn btn-brand" href="/negozi">Vedi i ${stores.length} negozi</a></div>
+${top.length ? `<h2>${seasonalTitle(offers)}</h2>${top.map((o) => offerCardHtml(env, o, true)).join('\n')}${offers.length > top.length ? `<p><a href="/offerte">Tutte le ${offers.length} offerte e i codici sconto</a></p>` : ''}` : ''}
+<h2>Come funziona</h2>
+${howItWorksHtml(env)}
+<h2>Negozi con cashback</h2>
+<div class="card"><ul class="store-list">${stores.map((s) => `<li><a href="/negozi/${attr(s.id)}">${escapeHtml(s.name)}</a><span class="muted">${escapeHtml(s.cashbackLabel)}</span></li>`).join('')}</ul></div>`;
+    return htmlPage(env, origin, {
+      path: '/', current: 'home', body,
+      title: `Cashback Italia: cashback su ${stores.length} negozi online e offerte Black Friday`,
+      description: `Cashback sui tuoi acquisti online, allo stesso prezzo: il ${share}% della commissione torna a te. ${stores.length} negozi partner, offerte e codici sconto aggiornati ogni giorno.`,
+    });
+  }
+
+  if (path === '/offerte') {
+    const codes = offers.filter((o) => o.code).length;
+    const body = `<h1>${seasonalTitle(offers)} e codici sconto</h1>
+<p class="lead">Le promozioni pubblicate dai nostri negozi partner${codes ? `, con ${codes} codici sconto` : ''}. Se apri l'offerta dal bot, oltre allo sconto ricevi anche il cashback.</p>
+${offers.length ? offers.map((o) => offerCardHtml(env, o, true)).join('\n') : '<p class="card">In questo momento non ci sono offerte attive. Trovi comunque il cashback in tutti i <a href="/negozi">negozi partner</a>.</p>'}
+<h2>Come funziona</h2>
+${howItWorksHtml(env)}`;
+    return htmlPage(env, origin, {
+      path: '/offerte', current: 'home', body,
+      title: `${seasonalTitle(offers)} e codici sconto con cashback | Cashback Italia`,
+      description: `${offers.length} offerte e codici sconto dei negozi partner, aggiornati ogni giorno. Aprili dal bot Telegram: oltre allo sconto ti torna una parte della spesa.`,
+    });
+  }
+
+  if (path === '/negozi') {
+    const cats = [...new Set(stores.map((s) => s.category || 'Altro'))].sort();
+    const body = `<h1>Negozi con cashback</h1>
+<p class="lead">${stores.length} negozi partner. Per ognuno trovi quanto cashback ricevi, i tempi medi di pagamento e le regole del suo programma di affiliazione.</p>
+${cats.map((c) => `<h2>${escapeHtml(c)}</h2><div class="card"><ul class="store-list">${stores.filter((s) => (s.category || 'Altro') === c).map((s) => `<li><a href="/negozi/${attr(s.id)}">${escapeHtml(s.name)}</a><span class="muted">${escapeHtml(s.cashbackLabel)}</span></li>`).join('')}</ul></div>`).join('\n')}
+<div class="cta-row"><a class="btn btn-coin" href="${attr(botStart(env, 'via_web'))}">Apri il bot su Telegram</a></div>`;
+    return htmlPage(env, origin, {
+      path: '/negozi', current: 'negozi', body,
+      title: `Negozi con cashback: ${stores.length} negozi online | Cashback Italia`,
+      description: `I ${stores.length} negozi online con cashback di Cashback Italia, per categoria: quanto ricevi, tempi di pagamento e regole di ognuno.`,
+    });
+  }
+
+  // Pagina di un negozio.
+  const id = path.slice('/negozi/'.length);
+  const s = stores.find((x) => x.id === id);
+  if (!s) {
+    return htmlPage(env, origin, {
+      path, status: 404, title: 'Negozio non trovato | Cashback Italia', description: 'Questo negozio non è tra i partner di Cashback Italia.',
+      body: `<h1>Negozio non trovato</h1><p class="lead">Questo negozio non è tra i nostri partner, oppure non lo è più.</p><p><a href="/negozi">Vedi i negozi con cashback</a></p>`,
+    });
+  }
+  const storeOffers = offers.filter((o) => o.storeId === s.id);
+  const hasCodes = storeOffers.some((o) => o.code);
+  const t = s.timing || {};
+  const r = s.rules || {};
+  const when = [];
+  if (t.validationDays) when.push(`${escapeHtml(s.name)} conferma gli ordini in media in ${t.validationDays} giorni, il tempo per eventuali resi.`);
+  if (t.avgPaymentDays) when.push(`In media il cashback diventa prelevabile ${t.avgPaymentDays} giorni dopo l'acquisto (circa ${Math.max(1, Math.round(t.avgPaymentDays / 30))} mesi).`);
+  if (t.approvalPercent !== null && t.approvalPercent !== undefined) when.push(`In media il negozio conferma il ${String(t.approvalPercent).replace('.', ',')}% degli ordini.`);
+  const rules = ['Apri il negozio dal bot subito prima di comprare: conta l\'ultimo clic.'];
+  if (r.cookieDays) rules.push(`Completa l'acquisto entro ${r.cookieDays === 1 ? '24 ore' : `${r.cookieDays} giorni`} dal clic.`);
+  if (r.appTracking === false) rules.push('Paga nel browser, non nell\'app del negozio: gli acquisti dall\'app non vengono registrati.');
+  rules.push('Accetta i cookie sul sito del negozio e non usare codici sconto trovati su altri siti.');
+  const decline = (r.declineReasons || []).length ? `<h2>Quando il cashback può essere annullato</h2><ul>${r.declineReasons.map((x) => `<li>${escapeHtml(x)}</li>`).join('')}</ul>` : '';
+  const related = stores.filter((x) => x.id !== s.id && x.category === s.category).slice(0, 6);
+  const body = `<div class="store-head">${logoHtml(s.name, s.logo)}<div><h1>Cashback ${escapeHtml(s.name)}</h1><p class="store-rate">${escapeHtml(s.cashbackLabel)}${s.category ? ` · ${escapeHtml(s.category)}` : ''}</p></div></div>
+<p class="lead">Con Cashback Italia ricevi ${escapeHtml(s.cashbackLabel)} di cashback sugli acquisti da ${escapeHtml(s.name)}, allo stesso prezzo di sempre. Basta aprire il negozio dal nostro bot Telegram prima di comprare.</p>
+<div class="cta-row"><a class="btn btn-coin" href="${attr(botStart(env, `s_${s.id}__via_web`))}">Apri ${escapeHtml(s.name)} con cashback</a></div>
+${storeOffers.length ? `<h2>Offerte${hasCodes ? ' e codici sconto' : ''} ${escapeHtml(s.name)}</h2>${storeOffers.map((o) => offerCardHtml(env, o, false)).join('\n')}` : ''}
+<h2>Quanto ricevi</h2>
+<div class="card"><table class="rates"><tr><th>Categoria</th><th>Commissione</th><th>A te</th></tr>${(s.rates || []).map((x) => `<tr><td>${escapeHtml(x.label)}</td><td class="muted">${escapeHtml(x.storePays)}</td><td class="you">${escapeHtml(x.youGet)}</td></tr>`).join('')}</table>
+<p class="tiny">La commissione è quello che ${escapeHtml(s.name)} paga a noi: a te ne va il ${share}%.</p></div>
+${when.length ? `<h2>Quando arriva</h2><ul>${when.map((x) => `<li>${x}</li>`).join('')}</ul>` : ''}
+<h2>Regole per non perdere il cashback</h2>
+<ul>${rules.map((x) => `<li>${x}</li>`).join('')}</ul>
+${decline}
+<h2>Come funziona</h2>
+${howItWorksHtml(env)}
+${related.length ? `<h2>Altri negozi: ${escapeHtml(s.category)}</h2><div class="card"><ul class="store-list">${related.map((x) => `<li><a href="/negozi/${attr(x.id)}">${escapeHtml(x.name)}</a><span class="muted">${escapeHtml(x.cashbackLabel)}</span></li>`).join('')}</ul></div>` : ''}
+<p class="tiny">Fonte: programma di affiliazione del negozio${s.updatedAt ? `, dati aggiornati al ${itDate(String(s.updatedAt).replace(' ', 'T'))}` : ''}. Le medie descrivono il passato e non sono una garanzia.</p>`;
+  return htmlPage(env, origin, {
+    path, current: 'negozi', body,
+    title: `${hasCodes ? `Codici sconto e cashback ${s.name}` : `Cashback ${s.name}`}: ${s.cashbackLabel} | Cashback Italia`,
+    description: `Cashback ${s.name}: ${s.cashbackLabel} sui tuoi acquisti, allo stesso prezzo.${storeOffers.length ? ` ${storeOffers.length} offerte${hasCodes ? ' e codici sconto' : ''} attive.` : ''} Tempi di pagamento, regole e come attivarlo dal bot Telegram.`,
+  });
 }

@@ -861,6 +861,38 @@ await step('fonti: chi arriva dal canale o da un\'offerta condivisa viene contat
   assert.equal(setup.data.telegram.channel.ok, true);
 });
 
+await step('pagine per Google: home, negozio, offerte, sitemap e robots', async () => {
+  const get = async (path) => { const r = await fetch(API + path); return { status: r.status, type: r.headers.get('content-type'), text: await r.text() }; };
+  const home = await get('/');
+  assert.equal(home.status, 200);
+  assert.match(home.type, /text\/html/);
+  assert.ok(home.text.includes('<link rel="canonical" href="http://127.0.0.1:8787/">'));
+  assert.ok(home.text.includes('Offerte Black Friday'));
+  assert.ok(home.text.includes('href="/negozi/douglas"'));
+  const store = await get('/negozi/douglas');
+  assert.equal(store.status, 200);
+  assert.ok(store.text.includes('<title>Codici sconto e cashback Douglas: fino al 7,2% | Cashback Italia</title>'));
+  assert.ok(store.text.includes('start=s_douglas__via_web'));
+  assert.ok(store.text.includes('BF10'));
+  assert.ok(store.text.includes('Quanto ricevi'));
+  const hidden = await get('/negozi/lunzo');
+  assert.equal(hidden.status, 404, 'negozio nascosto: nessuna pagina');
+  const offers = await get('/offerte');
+  assert.ok(offers.text.includes('start=o_502__via_web'));
+  const map = await get('/sitemap.xml');
+  assert.match(map.type, /xml/);
+  assert.ok(map.text.includes('<loc>http://127.0.0.1:8787/negozi/douglas</loc>'));
+  assert.ok(!map.text.includes('lunzo'));
+  const robots = await get('/robots.txt');
+  assert.ok(robots.text.includes('Sitemap: http://127.0.0.1:8787/sitemap.xml'));
+  // Chi arriva dal sito viene contato con fonte "web".
+  await hook(chat({ id: 669, first_name: 'Ivo' }, '/start s_douglas__via_web'));
+  const st = await call('/api/admin/stats', { initData: initData(alice) });
+  assert.equal(Object.fromEntries(st.data.sources.map((x) => [x.source, x.users])).web, 1);
+  // Le API restano JSON.
+  assert.equal((await call('/api/health')).data.ok, true);
+});
+
 await step('configurazione: comandi del bot impostati', async () => {
   const n = (await messages()).length;
   const r = await call('/api/admin/setup', { initData: initData(alice) });
