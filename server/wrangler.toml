@@ -44,6 +44,10 @@ CHANNEL_HOURS = "8-21"
 CHANNEL_EXCLUDE = "vodafone"
 # Google Search Console: file di verifica servito dal server (metodo "file HTML").
 GOOGLE_SITE_VERIFICATION_FILE = "googlea9c66a4a4f743bf9.html"
+# Indirizzo pubblico delle pagine e chiave IndexNow (pubblica per natura): quando le offerte cambiano il
+# server avvisa Bing e gli altri motori che usano IndexNow.
+PUBLIC_ORIGIN = "https://cashback-bot.alelimpo.workers.dev"
+INDEXNOW_KEY = "29293f98bfa7953dcd605ca733a42ccf"
 
 # Segreti: NON scriverli qui (questo file e' pubblico su GitHub).
 # Si impostano nella dashboard Cloudflare: Worker cashback-bot > Impostazioni > Variabili e segreti,

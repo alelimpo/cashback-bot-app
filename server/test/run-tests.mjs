@@ -885,6 +885,12 @@ await step('pagine per Google: home, negozio, offerte, sitemap e robots', async 
   assert.ok(!map.text.includes('lunzo'));
   const robots = await get('/robots.txt');
   assert.ok(robots.text.includes('Sitemap: http://127.0.0.1:8787/sitemap.xml'));
+  // IndexNow: chiave pubblicata e motori avvisati quando le offerte sono cambiate.
+  assert.equal((await get('/0123456789abcdef0123456789abcdef.txt')).text, '0123456789abcdef0123456789abcdef');
+  const pings = await (await fetch(MOCK + '/__indexnow')).json();
+  assert.ok(pings.length >= 1, 'almeno un avviso IndexNow');
+  assert.equal(pings[0].host, 'esempio.example');
+  assert.ok(pings[0].urlList.includes('https://esempio.example/negozi/douglas'));
   // Chi arriva dal sito viene contato con fonte "web".
   await hook(chat({ id: 669, first_name: 'Ivo' }, '/start s_douglas__via_web'));
   const st = await call('/api/admin/stats', { initData: initData(alice) });

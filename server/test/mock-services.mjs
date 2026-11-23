@@ -10,6 +10,7 @@ const calls = [];
 const emails = [];
 let authFail = false; // simula un token Awin revocato
 let offers = []; // offerte (Offers API di Awin)
+const indexnow = []; // avvisi IndexNow ricevuti
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost');
@@ -26,6 +27,8 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === '/__calls') return send(200, calls);
   if (url.pathname === '/__emails') return send(200, emails);
   if (url.pathname === '/__authfail') { authFail = url.searchParams.get('on') === '1'; return send(200, { ok: true }); }
+  if (url.pathname === '/indexnow' && req.method === 'POST') { indexnow.push(JSON.parse(body || '{}')); return send(200, {}); }
+  if (url.pathname === '/__indexnow') return send(200, indexnow);
   if (url.pathname === '/__offers' && req.method === 'POST') { offers = JSON.parse(body || '[]'); return send(200, { ok: true }); }
   if (/^\/publisher\/\d+\/promotions$/.test(url.pathname) && req.method === 'POST') {
     calls.push(url.pathname);

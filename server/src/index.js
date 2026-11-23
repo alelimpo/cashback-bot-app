@@ -751,7 +751,9 @@ export async function syncOffers(env, { force = false } = {}) {
     || ((Number.isFinite(parseUtc(a.endDate)) ? parseUtc(a.endDate) : Infinity) - (Number.isFinite(parseUtc(b.endDate)) ? parseUtc(b.endDate) : Infinity)));
   const kept = pickOffers(items, MAX_OFFERS_PER_STORE, MAX_OFFERS);
   await saveSetting(env, 'offers', { at: new Date().toISOString(), items: kept });
-  return { offers: kept.length, received: list.length };
+  const changed = ((cached && cached.items) || []).map((o) => o.id).join(',') !== kept.map((o) => o.id).join(',');
+  const pinged = changed || !(await readSetting(env, 'indexnow_at')) ? await pingIndexNow(env) : false;
+  return { offers: kept.length, received: list.length, ...(pinged ? { indexNow: pinged } : {}) };
 }
 
 // Al massimo "perStore" offerte per negozio, senza doppioni dello stesso titolo, e negozi alternati
@@ -770,6 +772,30 @@ export function pickOffers(sorted, perStore, max) {
     for (const list of byStore.values()) if (list[round]) out.push(list[round].o);
   }
   return out.slice(0, max);
+}
+
+// Avvisa i motori di ricerca (IndexNow) che le pagine pubbliche sono cambiate: al massimo una volta
+// ogni 12 ore, e solo quando le offerte cambiano. Indirizzo del sito: PUBLIC_ORIGIN.
+async function pingIndexNow(env) {
+  const key = String(env.INDEXNOW_KEY || '');
+  const origin = String(env.PUBLIC_ORIGIN || '').replace(/\/+$/, '');
+  if (!/^[a-f0-9]{32}$/.test(key) || !/^https:\/\//.test(origin)) return false;
+  const last = await readSetting(env, 'indexnow_at');
+  if (last && Date.now() - Date.parse(last) < 12 * 3600 * 1000) return false;
+  const stores = await listStores(env);
+  const urlList = ['/', '/offerte', '/negozi', ...stores.map((s) => `/negozi/${s.id}`)].map((p) => origin + p);
+  try {
+    const res = await fetch(env.INDEXNOW_ENDPOINT || 'https://api.indexnow.org/indexnow', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json; charset=utf-8' },
+      body: JSON.stringify({ host: new URL(origin).host, key, keyLocation: `${origin}/${key}.txt`, urlList }),
+    });
+    await saveSetting(env, 'indexnow_at', new Date().toISOString());
+    return `${res.status} (${urlList.length} pagine)`;
+  } catch (err) {
+    console.log('IndexNow non raggiunto', String(err));
+    return false;
+  }
 }
 
 async function findOffer(env, id) {
@@ -2221,6 +2247,11 @@ async function handleWeb(request, env, url) {
   const gfile = String(env.GOOGLE_SITE_VERIFICATION_FILE || '');
   if (/^google[a-z0-9]+\.html$/.test(gfile) && path === `/${gfile}`) {
     return new Response(`google-site-verification: ${gfile}`, { headers: { 'content-type': 'text/html; charset=utf-8' } });
+  }
+  // IndexNow (Bing, Yandex e altri): il file con la chiave dimostra che il sito e' nostro.
+  const ink = String(env.INDEXNOW_KEY || '');
+  if (/^[a-f0-9]{32}$/.test(ink) && path === `/${ink}.txt`) {
+    return new Response(ink, { headers: { 'content-type': 'text/plain; charset=utf-8' } });
   }
   if (path === '/robots.txt') {
     return new Response(`User-agent: *\nAllow: /\nDisallow: /api/\nSitemap: ${origin}/sitemap.xml\n`, { headers: { 'content-type': 'text/plain; charset=utf-8' } });
