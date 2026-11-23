@@ -306,7 +306,7 @@
             <div class="tiles" id="homeTiles"></div>
 
             <div class="section" id="offersSection" hidden>
-                <div class="section-head"><h2 id="offersTitle">Offerte del momento</h2><span class="tiny" id="offersCount"></span></div>
+                <div class="section-head"><h2 id="offersTitle">Offerte del momento</h2><button class="link-btn" id="channelBtn" hidden>Segui il canale</button></div>
                 <div class="offers" id="offerList"></div>
                 <p class="tiny">Promozioni pubblicate dai negozi partner: il cashback si aggiunge allo sconto. Usa solo i codici che trovi qui, quelli di altri siti possono annullare il cashback.</p>
             </div>
@@ -1049,7 +1049,9 @@
             $('offersSection').hidden = offers.length === 0;
             if (!offers.length) return;
             $('offersTitle').textContent = offers.some((o) => /black|cyber/i.test(o.title)) ? 'Offerte Black Friday' : 'Offerte del momento';
-            $('offersCount').textContent = offers.length > 1 ? offers.length + ' offerte' : '';
+            const ch = prog().channel;
+            $('channelBtn').hidden = !ch;
+            if (ch) $('channelBtn').onclick = () => { const u = 'https://t.me/' + ch; if (tg && tg.openTelegramLink) tg.openTelegramLink(u); else window.open(u, '_blank', 'noopener'); };
             for (const o of offers) {
                 const card = el('div', 'offer');
                 const head = el('div', 'offer-head');

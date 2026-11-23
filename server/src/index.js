@@ -538,7 +538,19 @@ function programInfo(env) {
     minPayoutCents: eurosToCents(env.MIN_PAYOUT_EUR, 1000),
     referralBonusCents: eurosToCents(env.REFERRAL_BONUS_EUR, 0),
     payoutWorkingDays: PAYOUT_WORKING_DAYS,
+    channel: channelUsername(env),
   };
+}
+
+// "@CashbackItaliaOfferte" -> "CashbackItaliaOfferte" (null se il canale non e' impostato o non e' pubblico).
+function channelUsername(env) {
+  const m = /^@([A-Za-z0-9_]{5,32})$/.exec(String(env.NEWS_CHANNEL || '').trim());
+  return m ? m[1] : null;
+}
+
+function channelButton(env, text = 'Canale delle offerte') {
+  const u = channelUsername(env);
+  return u ? [{ text, url: `https://t.me/${u}` }] : null;
 }
 
 // ------------------------------------------------------------- endpoint utente
@@ -1976,8 +1988,8 @@ async function handleChatMessage(env, ctx, msg, text) {
     if (target && await replyWithTarget(env, chatId, user, target)) return;
     const share = Math.round(userShare(env) * 100);
     await tgSend(env, chatId,
-      `Ciao! Fai la spesa online che faresti comunque, allo stesso prezzo, ma partendo da qui: così una parte dei soldi ti torna indietro.\n\nOgni negozio ci paga una commissione: il ${share}% è tuo, noi teniamo il ${100 - share}%. I tempi sono lunghi (spesso qualche mese, perché il negozio paga solo dopo aver confermato l'ordine), ma nella Mini App vedi sempre percentuali, tempi medi e regole di ogni negozio. Prelievo da ${formatEuro(eurosToCents(env.MIN_PAYOUT_EUR, 1000))} con PayPal o buono regalo.\n\nScorciatoia: mandami il link di un prodotto o il nome di un negozio e ti rispondo con il link che attiva il cashback.`,
-      keyboard([appButton(env)]));
+      `Ciao! Fai la spesa online che faresti comunque, allo stesso prezzo, ma partendo da qui: così una parte dei soldi ti torna indietro.\n\nOgni negozio ci paga una commissione: il ${share}% è tuo, noi teniamo il ${100 - share}%. I tempi sono lunghi (spesso qualche mese, perché il negozio paga solo dopo aver confermato l'ordine), ma nella Mini App vedi sempre percentuali, tempi medi e regole di ogni negozio. Prelievo da ${formatEuro(eurosToCents(env.MIN_PAYOUT_EUR, 1000))} con PayPal o buono regalo.\n\nScorciatoia: mandami il link di un prodotto o il nome di un negozio e ti rispondo con il link che attiva il cashback.${channelUsername(env) ? `\n\nLe offerte migliori le pubblichiamo anche su @${channelUsername(env)}.` : ''}`,
+      keyboard([appButton(env), channelButton(env, 'Segui il canale delle offerte')]));
     return;
   }
 
@@ -2006,7 +2018,7 @@ async function handleChatMessage(env, ctx, msg, text) {
       for (const o of offers.slice(0, 5)) lines.push(`- ${o.storeName}: ${o.title}`);
     }
     lines.push('', 'Tutti i negozi, le regole e le offerte sono nella Mini App.');
-    await tgSend(env, chatId, lines.join('\n'), keyboard([appButton(env, 'Vedi negozi e offerte')]));
+    await tgSend(env, chatId, lines.join('\n'), keyboard([appButton(env, 'Vedi negozi e offerte'), channelButton(env, 'Segui il canale delle offerte')]));
     return;
   }
   if (name) {
@@ -2175,7 +2187,8 @@ function botStart(env, payload) {
 }
 
 function htmlPage(env, origin, { path, title, description, body, current, status = 200 }) {
-  const links = [['/', 'Offerte', 'home'], ['/negozi', 'Negozi', 'negozi'], [`${SITE}/chi-siamo.html`, 'Chi siamo', ''], [botStart(env, 'via_web'), 'Apri il bot', '']];
+  const ch = channelUsername(env);
+  const links = [['/', 'Offerte', 'home'], ['/negozi', 'Negozi', 'negozi'], ...(ch ? [[`https://t.me/${ch}`, 'Canale Telegram', '']] : []), [botStart(env, 'via_web'), 'Apri il bot', '']];
   const nav = links.map(([href, label, key]) => `<a href="${attr(href)}"${key && key === current ? ' aria-current="page"' : ''}>${label}</a>`).join('');
   const html = `<!DOCTYPE html>
 <html lang="it">
@@ -2273,7 +2286,7 @@ async function handleWeb(request, env, url) {
     const top = offers.slice(0, 6);
     const body = `<h1>Una parte della spesa online ti torna indietro</h1>
 <p class="lead">Compri nei negozi partner allo stesso prezzo e il ${share}% della commissione che il negozio ci paga torna a te. Funziona su Telegram ed è gratis.</p>
-<div class="cta-row"><a class="btn btn-coin" href="${attr(botStart(env, 'via_web'))}">Apri il bot su Telegram</a><a class="btn btn-brand" href="/negozi">Vedi i ${stores.length} negozi</a></div>
+<div class="cta-row"><a class="btn btn-coin" href="${attr(botStart(env, 'via_web'))}">Apri il bot su Telegram</a><a class="btn btn-brand" href="/negozi">Vedi i ${stores.length} negozi</a>${channelUsername(env) ? `<a class="btn btn-brand" href="https://t.me/${attr(channelUsername(env))}">Segui il canale delle offerte</a>` : ''}</div>
 ${top.length ? `<h2>${seasonalTitle(offers)}</h2>${top.map((o) => offerCardHtml(env, o, true)).join('\n')}${offers.length > top.length ? `<p><a href="/offerte">Tutte le ${offers.length} offerte e i codici sconto</a></p>` : ''}` : ''}
 <h2>Come funziona</h2>
 ${howItWorksHtml(env)}

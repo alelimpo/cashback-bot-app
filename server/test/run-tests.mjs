@@ -895,6 +895,13 @@ await step('pagine per Google: home, negozio, offerte, sitemap e robots', async 
   await hook(chat({ id: 669, first_name: 'Ivo' }, '/start s_douglas__via_web'));
   const st = await call('/api/admin/stats', { initData: initData(alice) });
   assert.equal(Object.fromEntries(st.data.sources.map((x) => [x.source, x.users])).web, 1);
+  // Il canale delle offerte e' collegato da sito, Mini App e bot.
+  assert.ok(home.text.includes('href="https://t.me/TestCanale"'));
+  assert.equal((await call('/api/stores')).data.program.channel, 'TestCanale');
+  const n0 = (await messages()).length;
+  await hook(chat({ id: 670, first_name: 'Lea' }, '/start'));
+  const welcome = (await messages()).slice(n0).find((m) => String(m.chat_id) === '670');
+  assert.equal(welcome.reply_markup.inline_keyboard[1][0].url, 'https://t.me/TestCanale');
   // Le API restano JSON.
   assert.equal((await call('/api/health')).data.ok, true);
 });
