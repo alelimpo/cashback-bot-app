@@ -2,7 +2,7 @@
 
 Backend su Cloudflare Workers (piano gratuito) con database D1.
 
-- Indirizzo: `https://cashback-bot.alelimpo.workers.dev`
+- Indirizzo: `https://cashback-italia.com` (anche `https://cashback-bot.alelimpo.workers.dev`, che resta per API e webhook; le pagine del vecchio indirizzo rimandano al dominio)
 - Database: `cashback-bot` (Europa occidentale)
 - Pubblicazione: automatica a ogni modifica di questa cartella su GitHub (Cloudflare Workers Builds)
 

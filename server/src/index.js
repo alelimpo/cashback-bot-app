@@ -2204,7 +2204,7 @@ function htmlPage(env, origin, { path, title, description, body, current, status
 <meta property="og:description" content="${attr(description)}">
 <meta property="og:url" content="${attr(origin + path)}">
 ${env.GOOGLE_SITE_VERIFICATION ? `<meta name="google-site-verification" content="${attr(env.GOOGLE_SITE_VERIFICATION)}">\n` : ''}<meta name="theme-color" content="#0e5a45">
-<link rel="stylesheet" href="${SITE}/site.css">
+<link rel="stylesheet" href="/site.css">
 <style>.offer-code{display:inline-block;border:1.5px dashed var(--coin);border-radius:10px;padding:1px 10px;font-weight:800;letter-spacing:.04em}.store-link{color:var(--ink);text-decoration:none}.store-list{list-style:none;padding:0}.store-list li{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid var(--line);margin:0}.store-list li:first-child{border-top:0}</style>
 </head>
 <body>
@@ -2214,7 +2214,7 @@ ${body}
 </main>
 <footer class="site-footer"><div class="inner">
 <p>Cashback Italia è un servizio gestito da Alessandro Darida. I link verso i negozi sono link di affiliazione: il negozio ci paga una commissione sui tuoi acquisti e la parte più grande è tua.</p>
-<p><a href="/">Offerte</a><a href="/negozi">Negozi</a><a href="${SITE}/chi-siamo.html">Chi siamo</a><a href="${SITE}/termini.html">Termini</a><a href="${SITE}/privacy.html">Privacy</a></p>
+<p><a href="/">Offerte</a><a href="/negozi">Negozi</a><a href="/chi-siamo.html">Chi siamo</a><a href="/termini.html">Termini</a><a href="/privacy.html">Privacy</a></p>
 </div></footer>
 </body>
 </html>`;
@@ -2253,7 +2253,56 @@ function seasonalTitle(offers) {
   return offers.some((o) => /black|cyber/i.test(o.title)) ? 'Offerte Black Friday' : 'Offerte del momento';
 }
 
+// Pagine statiche pubblicate su GitHub Pages (chi siamo, privacy, termini, Mini App) che il
+// Worker serve anche dal dominio, cosi' tutto il sito sta su un solo indirizzo.
+const STATIC_FILES = /^\/(?:site\.css|chi-siamo\.html|privacy\.html|termini\.html|fonts\/[a-z0-9-]+\.woff2)$/;
+const WEB_ALIASES = {
+  '/index.html': '/app/', '/app': '/app/', '/negozi.html': '/negozi', '/app/negozi.html': '/negozi',
+  '/chi-siamo': '/chi-siamo.html', '/privacy': '/privacy.html', '/termini': '/termini.html',
+  '/app/chi-siamo.html': '/chi-siamo.html', '/app/privacy.html': '/privacy.html', '/app/termini.html': '/termini.html',
+};
+
+// Percorso del file su GitHub Pages, oppure null se non e' una pagina statica.
+function staticSitePath(pathname) {
+  if (pathname === '/app/') return '/index.html';
+  const rest = pathname.startsWith('/app/') ? pathname.slice(4) : pathname;
+  return STATIC_FILES.test(rest) ? rest : null;
+}
+
+function isWebPath(pathname) {
+  const path = pathname.replace(/\/+$/, '') || '/';
+  return ['/', '/negozi', '/offerte', '/sitemap.xml'].includes(path) || /^\/negozi\/[a-z0-9-]{1,60}$/.test(path)
+    || Boolean(WEB_ALIASES[pathname]) || Boolean(staticSitePath(pathname));
+}
+
+// Il sito vive su PUBLIC_ORIGIN: le pagine aperte da www o dal vecchio indirizzo workers.dev
+// vengono rimandate li' con un 301. API, webhook e file di verifica restano su ogni indirizzo.
+function canonicalRedirect(env, url) {
+  let pub;
+  try { pub = new URL(String(env.PUBLIC_ORIGIN || '')); } catch { return null; }
+  if (url.host === pub.host || !isWebPath(url.pathname)) return null;
+  if (!url.host.endsWith('.workers.dev') && url.host !== `www.${pub.host}`) return null;
+  return Response.redirect(`${pub.origin}${url.pathname}${url.search}`, 301);
+}
+
+async function proxyStatic(request, env, sitePath) {
+  const base = String(env.STATIC_SITE || SITE).replace(/\/+$/, '');
+  const res = await fetch(base + sitePath, { cf: { cacheEverything: true, cacheTtl: 600 } });
+  if (!res.ok) return new Response('Pagina non trovata', { status: 404, headers: { 'content-type': 'text/plain; charset=utf-8' } });
+  return new Response(request.method === 'HEAD' ? null : res.body, {
+    headers: {
+      'content-type': res.headers.get('content-type') || 'application/octet-stream',
+      'cache-control': sitePath.startsWith('/fonts/') ? 'public, max-age=604800' : 'public, max-age=600',
+    },
+  });
+}
+
 async function handleWeb(request, env, url) {
+  const moved = canonicalRedirect(env, url);
+  if (moved) return moved;
+  if (WEB_ALIASES[url.pathname]) return Response.redirect(`${url.origin}${WEB_ALIASES[url.pathname]}`, 301);
+  const sitePath = staticSitePath(url.pathname);
+  if (sitePath) return proxyStatic(request, env, sitePath);
   const path = url.pathname.replace(/\/+$/, '') || '/';
   const origin = url.origin;
   // Verifica di Google Search Console con il metodo "file HTML" (GOOGLE_SITE_VERIFICATION_FILE).
@@ -2277,7 +2326,7 @@ async function handleWeb(request, env, url) {
 
   if (path === '/sitemap.xml') {
     const day = new Date().toISOString().slice(0, 10);
-    const urls = ['/', '/offerte', '/negozi', ...stores.map((s) => `/negozi/${s.id}`)];
+    const urls = ['/', '/offerte', '/negozi', ...stores.map((s) => `/negozi/${s.id}`), '/chi-siamo.html'];
     const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.map((u) => `<url><loc>${escapeHtml(origin + u)}</loc><lastmod>${day}</lastmod></url>`).join('\n')}\n</urlset>\n`;
     return new Response(xml, { headers: { 'content-type': 'application/xml; charset=utf-8', 'cache-control': 'public, max-age=3600' } });
   }

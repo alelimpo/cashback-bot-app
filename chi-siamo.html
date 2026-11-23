@@ -82,7 +82,7 @@
 </footer>
 <script>
     // I numeri vengono dal server, cosi' restano sempre veri; senza rete restano quelli scritti sopra.
-    fetch('https://cashback-bot.alelimpo.workers.dev/api/stores').then((r) => r.json()).then(({ program: p }) => {
+    fetch('https://cashback-italia.com/api/stores').then((r) => r.json()).then(({ program: p }) => {
         if (!p) return;
         const euro = (c) => (c / 100).toLocaleString('it-IT', { style: 'currency', currency: 'EUR' });
         const set = (sel, v) => document.querySelectorAll(sel).forEach((n) => { n.textContent = v; });

@@ -891,6 +891,21 @@ await step('pagine per Google: home, negozio, offerte, sitemap e robots', async 
   assert.ok(pings.length >= 1, 'almeno un avviso IndexNow');
   assert.equal(pings[0].host, 'esempio.example');
   assert.ok(pings[0].urlList.includes('https://esempio.example/negozi/douglas'));
+  // Pagine statiche (GitHub Pages) servite dal dominio, con gli indirizzi brevi che rimandano.
+  const about = await get('/chi-siamo.html');
+  assert.equal(about.status, 200);
+  assert.match(about.type, /text\/html/);
+  assert.equal(about.text, 'PAGINA chi-siamo.html');
+  assert.equal((await get('/app/')).text, 'PAGINA index.html');
+  assert.equal((await get('/app/fonts/figtree-400.woff2')).text, 'PAGINA fonts/figtree-400.woff2');
+  assert.equal((await get('/site.css')).type, 'text/css');
+  assert.ok(home.text.includes('href="/site.css"') && home.text.includes('href="/privacy.html"'));
+  assert.ok(map.text.includes('<loc>http://127.0.0.1:8787/chi-siamo.html</loc>'));
+  const moved = async (path) => { const r = await fetch(API + path, { redirect: 'manual' }); return [r.status, r.headers.get('location')]; };
+  assert.deepEqual(await moved('/negozi.html'), [301, 'http://127.0.0.1:8787/negozi']);
+  assert.deepEqual(await moved('/app'), [301, 'http://127.0.0.1:8787/app/']);
+  assert.deepEqual(await moved('/app/privacy.html'), [301, 'http://127.0.0.1:8787/privacy.html']);
+  assert.equal((await get('/fonts/evil.ttf')).status, 404);
   // Chi arriva dal sito viene contato con fonte "web".
   await hook(chat({ id: 669, first_name: 'Ivo' }, '/start s_douglas__via_web'));
   const st = await call('/api/admin/stats', { initData: initData(alice) });

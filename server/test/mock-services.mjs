@@ -21,6 +21,14 @@ const server = http.createServer(async (req, res) => {
     res.end(JSON.stringify(data));
   };
 
+  // Finto GitHub Pages per le pagine statiche servite dal dominio.
+  if (url.pathname.startsWith('/site/')) {
+    const file = url.pathname.slice(6);
+    if (!/^(index|chi-siamo|privacy|termini)\.html$|^site\.css$|^fonts\/[a-z0-9-]+\.woff2$/.test(file)) { res.writeHead(404); return res.end('no'); }
+    const type = file.endsWith('.css') ? 'text/css' : file.endsWith('.woff2') ? 'font/woff2' : 'text/html; charset=utf-8';
+    res.writeHead(200, { 'content-type': type });
+    return res.end(`PAGINA ${file}`);
+  }
   if (url.pathname === '/__set' && req.method === 'POST') { transactions = JSON.parse(body || '[]'); return send(200, { ok: true }); }
   if (url.pathname === '/__programs' && req.method === 'POST') { programs = { joined: [], notjoined: [], groups: {}, details: {}, ...JSON.parse(body || '{}') }; return send(200, { ok: true }); }
   if (url.pathname === '/__messages') return send(200, messages);
