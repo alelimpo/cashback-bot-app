@@ -36,7 +36,7 @@ BOT_USERNAME = "MioCashback_bot"
 TELEGRAM_APP_LINK = ""
 # Canale pubblico dove il bot pubblica da solo le offerte (es. "@CashbackItaliaOfferte"; vuoto = spento).
 # Il bot deve essere amministratore del canale con il permesso di pubblicare.
-NEWS_CHANNEL = ""
+NEWS_CHANNEL = "@CashbackItaliaOfferte"
 # Un post ogni quante ore, e in quali ore (ora italiana).
 CHANNEL_POST_HOURS = "3"
 CHANNEL_HOURS = "8-21"
