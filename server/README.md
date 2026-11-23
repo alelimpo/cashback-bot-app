@@ -80,6 +80,21 @@ della Mini App le segnalazioni sono raggruppate per negozio: con un tocco rispon
 Quando Awin approva un negozio, le segnalazioni che lo riguardano si chiudono da sole e gli utenti
 ricevono il messaggio. Il database già in uso va aggiornato una volta con `db-updates/0003_segnalazioni.sql`.
 
+## Crescita: offerte, link in chat e messaggi a tutti
+
+- **Offerte dei negozi.** Ogni 3 ore il server legge da Awin (Offers API) le promozioni e i codici
+  sconto italiani dei negozi a cui sei iscritto e li mostra in cima alla Mini App, con il cashback del
+  negozio. I codici esclusivi di altri siti non arrivano. "Aggiorna negozi da Awin ora" le rilegge subito.
+- **Link in chat.** Chi manda al bot il link di un prodotto (anche copiato da un canale di offerte o un
+  link Awin di un altro sito) riceve lo stesso link con il cashback attivo. Funziona anche con il nome
+  del negozio ("Thun"). Se il negozio non è partner, la segnalazione parte da sola. Nei gruppi il bot
+  non risponde.
+- **Messaggio a tutti.** Area Admin > "Messaggio a tutti gli utenti": prima "Prova su di me", poi
+  "Invia a tutti". Chi scrive /stop non li riceve più (/avvisi li riattiva).
+- **Numeri.** Area Admin > "Numeri": utenti, clic, acquisti e la tua parte delle commissioni.
+- Dopo la pubblicazione premi una volta "Configura e verifica": imposta anche i comandi del bot.
+- `db-updates/0005_avvisi.sql` è facoltativo: la tabella di /stop viene creata da sola.
+
 ## Test in locale
 
 ```bash

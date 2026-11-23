@@ -27,6 +27,12 @@ const MAX_EMAILS_PER_DAY = 50; // il piano gratuito di Resend arriva a 100 email
 const DIRECTORY_CACHE_HOURS = 24;
 const OPEN_REQUEST_STATUSES = ['new', 'working'];
 const REQUEST_REPLY_STATUSES = ['working', 'added', 'alternative', 'not_possible'];
+// Offerte dei negozi (Offers API di Awin): lette al massimo ogni 3 ore.
+const OFFERS_REFRESH_HOURS = 3;
+const MAX_OFFERS = 40;
+// Messaggi a tutti gli utenti: il piano gratuito di Workers permette 50 chiamate esterne per
+// richiesta, quindi si invia a gruppi di 40 e la Mini App chiede il gruppo successivo.
+const BROADCAST_BATCH = 40;
 
 // Motivi di rifiuto letti dai termini Awin di ogni negozio, in italiano.
 const DECLINE_REASONS_IT = {
@@ -84,13 +90,17 @@ export default {
     try {
       // Endpoint chiamati da Awin e da Telegram: niente CORS, protetti da un segreto.
       if (url.pathname.startsWith('/awin/notify/')) return await handleAwinNotify(request, env, url, ctx);
-      if (url.pathname === '/telegram/webhook') return await handleTelegramWebhook(request, env);
+      if (url.pathname === '/telegram/webhook') return await handleTelegramWebhook(request, env, ctx);
 
       let res;
       const route = `${request.method} ${url.pathname}`;
       switch (route) {
         case 'GET /api/health': res = json({ ok: true }); break;
-        case 'GET /api/stores': res = json({ stores: await listStores(env), program: programInfo(env) }); break;
+        case 'GET /api/stores': {
+          const stores = await listStores(env);
+          res = json({ stores, offers: await listOffers(env, stores), program: programInfo(env) });
+          break;
+        }
         case 'POST /api/me': res = await handleMe(request, env); break;
         case 'POST /api/link': res = await handleLink(request, env); break;
         case 'POST /api/withdraw': res = await handleWithdraw(request, env, ctx); break;
@@ -103,6 +113,8 @@ export default {
         case 'POST /api/store-request': res = await handleStoreRequest(request, env, ctx); break;
         case 'POST /api/admin/store-requests': res = await handleAdminStoreRequests(request, env); break;
         case 'POST /api/admin/store-requests/update': res = await handleAdminStoreRequestUpdate(request, env, ctx); break;
+        case 'POST /api/admin/stats': res = await handleAdminStats(request, env); break;
+        case 'POST /api/admin/broadcast': res = await handleAdminBroadcast(request, env); break;
         default: res = json({ error: 'not_found' }, 404);
       }
       return withHeaders(res, cors);
@@ -120,12 +132,12 @@ export default {
 
 // Giro completo con Awin: vendite, poi programmi e negozi. Parte ogni ora dal cron
 // oppure dal pulsante "Aggiorna ora" nell'area admin.
-async function runSync(env) {
+async function runSync(env, { forceOffers = false } = {}) {
   const out = {};
-  for (const [key, fn] of [['last_sync', syncAwin], ['last_programs_sync', syncPrograms]]) {
+  for (const [key, fn] of [['last_sync', syncAwin], ['last_programs_sync', syncPrograms], ['last_offers_sync', syncOffers]]) {
     let value;
     try {
-      value = { at: new Date().toISOString(), ...(await fn(env)) };
+      value = { at: new Date().toISOString(), ...(await fn(env, { force: forceOffers })) };
     } catch (err) {
       console.error(`${key} fallita`, err);
       value = { at: new Date().toISOString(), error: String(err && err.message ? err.message : err) };
@@ -471,6 +483,7 @@ export function buildStoreView(s, env) {
   return {
     id: s.id,
     name: s.name,
+    awinMid: Number(s.awin_mid) || null,
     category: s.category,
     domains: String(s.domains || '').split(',').map((d) => d.trim().toLowerCase()).filter(Boolean),
     cashbackLabel: headline,
@@ -549,6 +562,7 @@ async function handleMe(request, env) {
     referralBonusCents: eurosToCents(env.REFERRAL_BONUS_EUR, 0),
     program: programInfo(env),
     stores,
+    offers: await listOffers(env, stores),
     transactions: txs.results.map((t) => {
       const state = t.status === 'pending' ? 'pending'
         : t.status === 'approved' ? (t.paid_to_publisher ? 'available' : 'approved')
@@ -594,7 +608,12 @@ async function handleLink(request, env) {
   const view = buildStoreView(store, env);
   if (view.hidden) throw new HttpError(404, 'store_not_found');
   let destination = null;
-  if (body.url && view.productLinks) {
+  if (body.offerId) {
+    // Offerta letta da Awin: la pagina dell'offerta arriva dal negozio stesso, quindi e' affidabile.
+    const offer = await findOffer(env, String(body.offerId));
+    if (!offer || offer.storeId !== store.id) throw new HttpError(404, 'offer_not_found');
+    if (view.productLinks && offer.url) destination = offer.url;
+  } else if (body.url && view.productLinks) {
     let parsed;
     try {
       parsed = new URL(String(body.url).trim());
@@ -606,16 +625,20 @@ async function handleLink(request, env) {
     if (!hostMatches(parsed.hostname, domains)) throw new HttpError(400, 'url_not_for_store');
     destination = parsed.toString();
   }
+  return json({ url: await createTrackedLink(env, user.id, store, destination) });
+}
 
+// Registra il clic (il suo id e' il clickref che Awin restituisce con la vendita) e crea il link Awin.
+async function createTrackedLink(env, userId, store, destination) {
   // Limite semplice contro gli abusi: massimo 20 link al minuto per utente.
   const recent = await env.DB.prepare(
     "SELECT COUNT(*) AS n FROM clicks WHERE user_id = ? AND created_at > datetime('now', '-1 minute')"
-  ).bind(user.id).first();
+  ).bind(userId).first();
   if (recent.n >= 20) throw new HttpError(429, 'rate_limited');
 
   const clickId = randomId(16);
   await env.DB.prepare('INSERT INTO clicks (id, user_id, store_id, dest_url) VALUES (?, ?, ?, ?)')
-    .bind(clickId, user.id, store.id, destination)
+    .bind(clickId, userId, store.id, destination)
     .run();
 
   const link = new URL('https://www.awin1.com/cread.php');
@@ -623,7 +646,135 @@ async function handleLink(request, env) {
   link.searchParams.set('awinaffid', String(env.AWIN_PUBLISHER_ID));
   link.searchParams.set('clickref', clickId);
   if (destination) link.searchParams.set('ued', destination);
-  return json({ url: link.toString() });
+  return link.toString();
+}
+
+// ------------------------------------------------------------- offerte Awin
+
+function cleanText(value, max) {
+  return String(value || '')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/gi, ' ').replace(/&amp;/gi, '&').replace(/&quot;/gi, '"').replace(/&#0?39;|&apos;/gi, "'")
+    .replace(/&euro;/gi, '€').replace(/&lt;/gi, '<').replace(/&gt;/gi, '>')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, max);
+}
+
+// Le date di Awin sono in UTC senza fuso ("2026-11-30T00:00:00.000").
+function parseUtc(s) {
+  if (!s) return NaN;
+  const t = String(s).replace(' ', 'T');
+  return Date.parse(/[zZ]|[+-]\d\d:?\d\d$/.test(t) ? t : `${t}Z`);
+}
+
+function httpUrlOrNull(value) {
+  try {
+    const u = new URL(String(value || '').trim());
+    return ['http:', 'https:'].includes(u.protocol) ? u.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
+const SEASONAL = /black|cyber|week ?end|natal|christmas|xmas|saldi|sale/i;
+
+// Offerte e codici sconto dei negozi a cui sei iscritto, per l'Italia (Offers API di Awin).
+// I codici esclusivi di altri siti non arrivano: Awin li restituisce senza codice e vengono scartati.
+export async function syncOffers(env, { force = false } = {}) {
+  if (!env.AWIN_API_TOKEN || !env.AWIN_PUBLISHER_ID) return { skipped: true };
+  const cached = await readSetting(env, 'offers');
+  const refreshHours = Number.isFinite(Number(env.OFFERS_REFRESH_HOURS)) && env.OFFERS_REFRESH_HOURS !== '' && env.OFFERS_REFRESH_HOURS != null
+    ? Number(env.OFFERS_REFRESH_HOURS) : OFFERS_REFRESH_HOURS;
+  if (!force && cached && cached.at && Date.now() - Date.parse(cached.at) < refreshHours * 3600 * 1000) {
+    return { skipped: 'recenti', offers: (cached.items || []).length };
+  }
+  const base = env.AWIN_API_BASE || 'https://api.awin.com';
+  const url = new URL(`${base}/publisher/${env.AWIN_PUBLISHER_ID}/promotions`);
+  url.searchParams.set('accessToken', env.AWIN_API_TOKEN);
+  const res = await fetch(url.toString(), {
+    method: 'POST',
+    headers: { authorization: `Bearer ${env.AWIN_API_TOKEN}`, 'content-type': 'application/json', accept: 'application/json' },
+    body: JSON.stringify({
+      filters: { membership: 'joined', regionCodes: ['IT'], status: 'active', type: 'all' },
+      pagination: { page: 1, pageSize: 200 },
+    }),
+  });
+  // Messaggio diverso da "Awin API 401": un problema delle sole offerte non deve far scattare
+  // l'avviso "token Awin non valido".
+  if (!res.ok) throw new Error(`Awin Offers ${res.status}`);
+  const data = await res.json().catch(() => null);
+  const list = Array.isArray(data) ? data
+    : data && Array.isArray(data.data) ? data.data
+    : data && Array.isArray(data.promotions) ? data.promotions
+    : [];
+
+  const { results: stores } = await env.DB.prepare('SELECT id, awin_mid FROM stores WHERE active = 1').all();
+  const byMid = new Map(stores.map((s) => [Number(s.awin_mid), s.id]));
+  const now = Date.now();
+  const items = [];
+  for (const o of list) {
+    if (!o || !o.advertiser) continue;
+    const storeId = byMid.get(Number(o.advertiser.id));
+    if (!storeId) continue;
+    const voucher = o.type === 'voucher';
+    const code = voucher && o.voucher && o.voucher.code ? cleanText(o.voucher.code, 40) : null;
+    if (voucher && !code) continue;
+    const end = parseUtc(o.endDate);
+    if (Number.isFinite(end) && end < now) continue;
+    const title = cleanText(o.title, 140);
+    if (!title) continue;
+    items.push({
+      id: String(o.promotionId),
+      storeId,
+      type: voucher ? 'voucher' : 'promotion',
+      title,
+      description: cleanText(o.description, 400),
+      terms: cleanText(o.terms, 500),
+      startDate: o.startDate || null,
+      endDate: o.endDate || null,
+      code,
+      url: httpUrlOrNull(o.url),
+    });
+  }
+  // Prima le offerte stagionali (Black Friday, Natale...), poi quelle che scadono prima.
+  items.sort((a, b) => (SEASONAL.test(b.title) - SEASONAL.test(a.title))
+    || ((Number.isFinite(parseUtc(a.endDate)) ? parseUtc(a.endDate) : Infinity) - (Number.isFinite(parseUtc(b.endDate)) ? parseUtc(b.endDate) : Infinity)));
+  const kept = items.slice(0, MAX_OFFERS);
+  await saveSetting(env, 'offers', { at: new Date().toISOString(), items: kept });
+  return { offers: kept.length, received: list.length };
+}
+
+async function findOffer(env, id) {
+  const cached = await readSetting(env, 'offers');
+  return ((cached && cached.items) || []).find((o) => o.id === id) || null;
+}
+
+// Offerte da mostrare: solo dei negozi visibili e non scadute, con il cashback del negozio.
+async function listOffers(env, stores) {
+  const cached = await readSetting(env, 'offers');
+  if (!cached || !Array.isArray(cached.items)) return [];
+  const byId = new Map(stores.map((s) => [s.id, s]));
+  const now = Date.now();
+  return cached.items
+    .filter((o) => byId.has(o.storeId) && !(Number.isFinite(parseUtc(o.endDate)) && parseUtc(o.endDate) < now))
+    .map((o) => {
+      const s = byId.get(o.storeId);
+      return {
+        id: o.id,
+        storeId: o.storeId,
+        storeName: s.name,
+        logo: s.logo,
+        cashbackLabel: s.cashbackLabel,
+        type: o.type,
+        title: o.title,
+        description: o.description,
+        terms: o.terms,
+        endDate: o.endDate ? String(o.endDate).slice(0, 10) : null,
+        code: o.code,
+        opensHome: !s.productLinks,
+      };
+    });
 }
 
 async function handleWithdraw(request, env, ctx) {
@@ -727,6 +878,11 @@ function awinProfileUrl(env, id) {
 
 async function handleStoreRequest(request, env, ctx) {
   const { body, user } = await authenticate(request, env);
+  return json(await createStoreRequest(env, ctx, user, body));
+}
+
+// Usata dalla Mini App e dal bot (quando un utente manda il link di un negozio che non abbiamo).
+async function createStoreRequest(env, ctx, user, body) {
   const storeName = String(body.storeName || '').replace(/\s+/g, ' ').trim().slice(0, 80);
   const note = String(body.note || '').replace(/\s+/g, ' ').trim().slice(0, 300) || null;
   const websiteRaw = String(body.website || '').trim();
@@ -760,7 +916,7 @@ async function handleStoreRequest(request, env, ctx) {
   const id = ins.meta ? ins.meta.last_row_id : null;
 
   ctx.waitUntil(notifyStoreRequest(env, { id, user, storeName, key, host, note, known, rejectedStore }));
-  return json({ ok: true, id, status, comingSoon: known ? known.name : null });
+  return { ok: true, id, status, comingSoon: known ? known.name : null };
 }
 
 async function notifyStoreRequest(env, { id, user, storeName, key, host, note, known, rejectedStore }) {
@@ -983,12 +1139,82 @@ async function handleAdminStoreVisibility(request, env) {
   return json({ ok: true, id, hidden });
 }
 
+// Numeri del servizio per l'admin: utenti, clic, acquisti e commissioni.
+async function handleAdminStats(request, env) {
+  await requireAdmin(request, env);
+  const live = "status IN ('pending', 'approved')";
+  const t = await env.DB.prepare(
+    `SELECT
+       (SELECT COUNT(*) FROM users) AS users,
+       (SELECT COUNT(*) FROM users WHERE created_at > datetime('now', '-7 days')) AS users7,
+       (SELECT COUNT(*) FROM users WHERE referred_by IS NOT NULL) AS referred,
+       (SELECT COUNT(*) FROM clicks) AS clicks,
+       (SELECT COUNT(*) FROM clicks WHERE created_at > datetime('now', '-7 days')) AS clicks7,
+       (SELECT COUNT(DISTINCT user_id) FROM clicks) AS clickers,
+       (SELECT COUNT(*) FROM transactions WHERE ${live}) AS sales,
+       (SELECT COUNT(*) FROM transactions WHERE ${live} AND user_id IS NOT NULL) AS salesLinked,
+       (SELECT COUNT(*) FROM transactions WHERE status = 'pending') AS salesPending,
+       (SELECT COUNT(*) FROM transactions WHERE status = 'approved') AS salesApproved,
+       (SELECT COUNT(*) FROM transactions WHERE status IN ('declined', 'deleted')) AS salesCancelled,
+       (SELECT COALESCE(SUM(sale_amount_cents), 0) FROM transactions WHERE ${live}) AS salesCents,
+       (SELECT COALESCE(SUM(commission_cents), 0) FROM transactions WHERE ${live}) AS commissionCents,
+       (SELECT COALESCE(SUM(user_amount_cents), 0) FROM transactions WHERE ${live}) AS userCents,
+       (SELECT COALESCE(SUM(amount_cents), 0) FROM withdrawals WHERE status = 'paid') AS paidOutCents`
+  ).first();
+  const { results: topStores } = await env.DB.prepare(
+    `SELECT s.name AS name, COUNT(*) AS clicks FROM clicks c JOIN stores s ON s.id = c.store_id
+      WHERE c.created_at > datetime('now', '-30 days') GROUP BY s.name ORDER BY clicks DESC LIMIT 5`
+  ).all();
+  await ensureNewsTable(env);
+  const optOut = (await env.DB.prepare('SELECT COUNT(*) AS n FROM news_optout').first()).n;
+  return json({ ...t, marginCents: t.commissionCents - t.userCents, topStores, newsOptOut: optOut, lastBroadcast: await readSetting(env, 'last_broadcast') });
+}
+
+async function ensureNewsTable(env) {
+  await env.DB.prepare(
+    "CREATE TABLE IF NOT EXISTS news_optout (user_id TEXT PRIMARY KEY, created_at TEXT NOT NULL DEFAULT (datetime('now')))"
+  ).run();
+}
+
+// Messaggio a tutti gli utenti (escluso chi ha scritto /stop), a gruppi di BROADCAST_BATCH.
+// La Mini App richiama l'indirizzo con "after" finche' "next" non e' null.
+async function handleAdminBroadcast(request, env) {
+  const { body, user } = await requireAdmin(request, env);
+  const text = String(body.text || '').trim();
+  if (text.length < 5 || text.length > 1500) throw new HttpError(400, 'invalid_text');
+  await ensureNewsTable(env);
+  const full = `${text}\n\nNon vuoi ricevere questi avvisi? Scrivi /stop`;
+  const extra = env.MINI_APP_URL
+    ? { reply_markup: { inline_keyboard: [[{ text: 'Apri Cashback Italia', web_app: { url: env.MINI_APP_URL } }]] } }
+    : {};
+  if (body.test === true) {
+    const ok = await tgSend(env, user.id, full, extra);
+    return json({ ok, test: true });
+  }
+  const after = Number.isInteger(body.after) && body.after > 0 ? body.after : 0;
+  const total = (await env.DB.prepare(
+    'SELECT COUNT(*) AS n FROM users WHERE id NOT IN (SELECT user_id FROM news_optout)'
+  ).first()).n;
+  const { results } = await env.DB.prepare(
+    `SELECT rowid AS rid, id FROM users WHERE rowid > ? AND id NOT IN (SELECT user_id FROM news_optout)
+      ORDER BY rowid LIMIT ?`
+  ).bind(after, BROADCAST_BATCH).all();
+  let sent = 0;
+  let failed = 0;
+  for (const r of results) {
+    if (await tgSend(env, r.id, full, extra)) sent++; else failed++;
+  }
+  if (after === 0) await saveSetting(env, 'last_broadcast', { at: new Date().toISOString(), text: text.slice(0, 200), total });
+  const next = results.length === BROADCAST_BATCH ? results[results.length - 1].rid : null;
+  return json({ ok: true, sent, failed, total, next });
+}
+
 // "Aggiorna ora": stesso giro del cron, al massimo una volta ogni 2 minuti (limiti dell'API Awin).
 async function handleAdminSync(request, env) {
   await requireAdmin(request, env);
   const last = await readSetting(env, 'last_programs_sync');
   if (last && last.at && Date.now() - Date.parse(last.at) < 120 * 1000) throw new HttpError(429, 'too_soon');
-  const out = await runSync(env);
+  const out = await runSync(env, { forceOffers: true });
   const p = out.last_programs_sync || {};
   return json({
     ok: !p.error && !(out.last_sync || {}).error,
@@ -1021,12 +1247,15 @@ async function handleAdminSetup(request, env) {
         menu_button: { type: 'web_app', text: 'Cashback', web_app: { url: env.MINI_APP_URL } },
       })
     : { ok: false, description: 'MINI_APP_URL non impostato' };
+  // Comandi suggeriti da Telegram quando l'utente scrive "/" nella chat del bot.
+  const commands = await tgCall(env, 'setMyCommands', { commands: BOT_COMMANDS });
 
   return json({
     awinNotifyUrl: notifySecret ? `${origin}/awin/notify/${notifySecret}` : null,
     telegram: {
       webhook: { ok: !!webhook.ok, description: webhook.description || null },
       menuButton: { ok: !!menuButton.ok, description: menuButton.description || null },
+      commands: { ok: !!commands.ok, description: commands.description || null },
     },
     checks: {
       awinApiToken: !!env.AWIN_API_TOKEN,
@@ -1480,18 +1709,22 @@ async function grantReferralBonuses(env) {
 
 // ---------------------------------------------------------------- Telegram
 
+// Restituisce true se Telegram ha consegnato il messaggio.
 async function tgSend(env, chatId, text, extra = {}) {
-  if (!env.TELEGRAM_BOT_TOKEN) return;
+  if (!env.TELEGRAM_BOT_TOKEN) return false;
   const base = env.TELEGRAM_API_BASE || 'https://api.telegram.org';
   try {
-    await fetch(`${base}/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
+    const res = await fetch(`${base}/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ chat_id: chatId, text, ...extra }),
     });
+    const data = await res.json().catch(() => ({}));
+    return !!data.ok;
   } catch (err) {
-    // L'utente potrebbe non aver mai avviato il bot: non e' un errore grave.
+    // L'utente potrebbe non aver mai avviato il bot o averlo bloccato: non e' un errore grave.
     console.log('Invio Telegram non riuscito', String(err));
+    return false;
   }
 }
 
@@ -1515,22 +1748,207 @@ async function notifyAdmins(env, text) {
   await Promise.all(ids.map((id) => tgSend(env, id, text)));
 }
 
-// Webhook del bot (facoltativo): risponde a /start con il pulsante della Mini App
-// e registra gli inviti arrivati con t.me/NomeBot?start=ref_CODICE.
-async function handleTelegramWebhook(request, env) {
+const BOT_COMMANDS = [
+  { command: 'negozi', description: 'Negozi con cashback e offerte del momento' },
+  { command: 'aiuto', description: 'Come funziona il cashback' },
+  { command: 'stop', description: 'Non ricevere più avvisi sulle offerte' },
+  { command: 'avvisi', description: 'Ricevi di nuovo gli avvisi sulle offerte' },
+];
+
+const SHORTENERS = /(^|\.)(bit\.ly|tinyurl\.com|t\.co|goo\.gl|shorturl\.at|rebrand\.ly|cutt\.ly|is\.gd|ow\.ly|tidd\.ly|clk\.tradedoubler\.com|s\.click\.aliexpress\.com)$/i;
+const AMAZON = /(^|\.)(amazon\.[a-z.]+|amzn\.(to|eu|com))$/i;
+const NOT_SHOPS = /(^|\.)(t\.me|telegram\.(org|me)|youtube\.com|youtu\.be|google\.[a-z.]+|facebook\.com|instagram\.com|tiktok\.com|whatsapp\.com|wikipedia\.org|github\.io)$/i;
+
+function appButton(env, text = 'Apri Cashback Italia') {
+  return env.MINI_APP_URL ? [{ text, web_app: { url: env.MINI_APP_URL } }] : null;
+}
+
+function keyboard(rows) {
+  const clean = rows.filter(Boolean);
+  return clean.length ? { reply_markup: { inline_keyboard: clean } } : {};
+}
+
+// Webhook del bot: /start con il pulsante della Mini App (e gli inviti t.me/NomeBot?start=ref_CODICE),
+// comandi, e "manda un link, ricevi il link con cashback" in chat privata.
+async function handleTelegramWebhook(request, env, ctx) {
   const secret = await secretFor(env, 'TELEGRAM_WEBHOOK_SECRET');
   if (!secret || request.headers.get('x-telegram-bot-api-secret-token') !== secret) {
     return new Response('Not found', { status: 404 });
   }
   const update = await request.json().catch(() => ({}));
   const msg = update.message;
-  if (msg && msg.from && typeof msg.text === 'string' && msg.text.startsWith('/start')) {
-    const payload = msg.text.split(/\s+/)[1] || null;
-    await upsertUser(env, msg.from, payload);
-    const share = Math.round(userShare(env) * 100);
-    await tgSend(env, msg.chat.id,
-      `Ciao! Fai la spesa online che faresti comunque, allo stesso prezzo, ma partendo da qui: così una parte dei soldi ti torna indietro.\n\nOgni negozio ci paga una commissione: il ${share}% è tuo, noi teniamo il ${100 - share}%. I tempi sono lunghi (spesso qualche mese, perché il negozio paga solo dopo aver confermato l'ordine), ma nella Mini App vedi sempre percentuali, tempi medi e regole di ogni negozio. Prelievo da ${formatEuro(eurosToCents(env.MIN_PAYOUT_EUR, 1000))} con PayPal o buono regalo.`,
-      { reply_markup: { inline_keyboard: [[{ text: 'Apri Cashback Italia', web_app: { url: env.MINI_APP_URL } }]] } });
+  if (!msg || !msg.from || !msg.chat || typeof (msg.text ?? msg.caption) !== 'string') return new Response('OK');
+  // Nei gruppi il bot non risponde: niente messaggi indesiderati.
+  if (msg.chat.type && msg.chat.type !== 'private') return new Response('OK');
+  const text = String(msg.text ?? msg.caption).trim();
+  try {
+    await handleChatMessage(env, ctx, msg, text);
+  } catch (err) {
+    console.error('Messaggio del bot non gestito', err && err.stack ? err.stack : err);
+    if (err instanceof HttpError && err.code === 'rate_limited') {
+      await tgSend(env, msg.chat.id, 'Troppe richieste ravvicinate: riprova tra un minuto.');
+    }
   }
   return new Response('OK');
+}
+
+async function handleChatMessage(env, ctx, msg, text) {
+  const chatId = msg.chat.id;
+  const command = /^\/([a-z_]+)(?:@\w+)?(?:\s+(.*))?$/i.exec(text);
+  const name = command ? command[1].toLowerCase() : null;
+
+  if (name === 'start') {
+    const payload = (command[2] || '').split(/\s+/)[0] || null;
+    await upsertUser(env, msg.from, payload);
+    const share = Math.round(userShare(env) * 100);
+    await tgSend(env, chatId,
+      `Ciao! Fai la spesa online che faresti comunque, allo stesso prezzo, ma partendo da qui: così una parte dei soldi ti torna indietro.\n\nOgni negozio ci paga una commissione: il ${share}% è tuo, noi teniamo il ${100 - share}%. I tempi sono lunghi (spesso qualche mese, perché il negozio paga solo dopo aver confermato l'ordine), ma nella Mini App vedi sempre percentuali, tempi medi e regole di ogni negozio. Prelievo da ${formatEuro(eurosToCents(env.MIN_PAYOUT_EUR, 1000))} con PayPal o buono regalo.\n\nScorciatoia: mandami il link di un prodotto o il nome di un negozio e ti rispondo con il link che attiva il cashback.`,
+      keyboard([appButton(env)]));
+    return;
+  }
+
+  const user = await upsertUser(env, msg.from, null);
+
+  if (name === 'stop') {
+    await ensureNewsTable(env);
+    await env.DB.prepare('INSERT OR IGNORE INTO news_optout (user_id) VALUES (?)').bind(user.id).run();
+    await tgSend(env, chatId, 'Fatto: non ti mandiamo più avvisi sulle offerte. Riceverai solo i messaggi sui tuoi acquisti e prelievi. Per riattivarli scrivi /avvisi.');
+    return;
+  }
+  if (name === 'avvisi') {
+    await ensureNewsTable(env);
+    await env.DB.prepare('DELETE FROM news_optout WHERE user_id = ?').bind(user.id).run();
+    await tgSend(env, chatId, 'Avvisi riattivati: ti scriviamo quando ci sono offerte interessanti nei negozi partner.');
+    return;
+  }
+
+  const stores = await listStores(env);
+  if (name === 'negozi' || name === 'offerte') {
+    const offers = await listOffers(env, stores);
+    const lines = [`Oggi hai il cashback in ${stores.length} negozi${stores.length ? ', per esempio:' : '.'}`];
+    for (const s of stores.slice(0, 8)) lines.push(`- ${s.name}: ${s.cashbackLabel}`);
+    if (offers.length) {
+      lines.push('', `Offerte del momento (${offers.length}):`);
+      for (const o of offers.slice(0, 5)) lines.push(`- ${o.storeName}: ${o.title}`);
+    }
+    lines.push('', 'Tutti i negozi, le regole e le offerte sono nella Mini App.');
+    await tgSend(env, chatId, lines.join('\n'), keyboard([appButton(env, 'Vedi negozi e offerte')]));
+    return;
+  }
+  if (name) {
+    await tgSend(env, chatId, helpText(env), keyboard([appButton(env)]));
+    return;
+  }
+
+  // Un link: se e' di un negozio partner rispondiamo con il link che attiva il cashback.
+  const found = findLinkInText(text);
+  if (found) {
+    const target = await storeForLink(env, stores, found);
+    if (target) {
+      await replyWithStoreLink(env, chatId, user, target.view, target.destination, !!found.url);
+      return;
+    }
+    if (SHORTENERS.test(found.host)) {
+      await tgSend(env, chatId, 'Da un link accorciato non riesco a capire il negozio. Aprilo, copia l\'indirizzo completo della pagina del prodotto e mandamelo qui.');
+      return;
+    }
+    if (AMAZON.test(found.host)) {
+      await tgSend(env, chatId, 'Amazon non è tra i nostri negozi partner: sui suoi acquisti non possiamo darti cashback. Nella Mini App trovi i negozi dove il cashback c\'è, per esempio di elettronica, casa e moda.', keyboard([appButton(env, 'Vedi i negozi partner')]));
+      return;
+    }
+    const label = domainBase(found.host);
+    if (NOT_SHOPS.test(found.host)) {
+      await tgSend(env, chatId, helpText(env), keyboard([appButton(env)]));
+      return;
+    }
+    await tgSend(env, chatId,
+      `${found.host} non è ancora tra i nostri negozi partner, quindi su questo acquisto non possiamo darti cashback. L'abbiamo segnalato: se riusciamo ad aggiungerlo ti scriviamo qui.\n\nNella Mini App trovi i negozi con cashback e le offerte del momento.`,
+      keyboard([appButton(env, 'Vedi i negozi partner')]));
+    if (label && label.length >= 2) {
+      try {
+        await createStoreRequest(env, ctx, user, { storeName: label.charAt(0).toUpperCase() + label.slice(1), website: found.host, note: 'Link mandato in chat al bot' });
+      } catch (err) {
+        if (!(err instanceof HttpError)) throw err; // gia' segnalato, troppe segnalazioni...: va bene cosi'
+      }
+    }
+    return;
+  }
+
+  // Il nome di un negozio.
+  const key = storeKey(text);
+  if (key.length >= 3 && text.length <= 60) {
+    const matches = stores.filter((s) => {
+      const k = storeKey(s.name);
+      const first = storeKey(String(s.name).split(/\s+/)[0]);
+      return k === key || first === key || (key.length >= 4 && k.startsWith(key)) || (first.length >= 4 && key.includes(first));
+    });
+    if (matches.length === 1) {
+      await replyWithStoreLink(env, chatId, user, matches[0], null, false);
+      return;
+    }
+    if (matches.length > 1) {
+      const rows = [];
+      for (const s of matches.slice(0, 4)) {
+        const row = await env.DB.prepare('SELECT * FROM stores WHERE id = ?').bind(s.id).first();
+        rows.push([{ text: `${s.name}: ${s.cashbackLabel}`, url: await createTrackedLink(env, user.id, row, null) }]);
+      }
+      await tgSend(env, chatId, 'Ho trovato più negozi. Tocca quello che ti interessa e completa l\'acquisto nella pagina che si apre.', keyboard(rows));
+      return;
+    }
+  }
+  await tgSend(env, chatId, helpText(env), keyboard([appButton(env)]));
+}
+
+function helpText(env) {
+  const share = Math.round(userShare(env) * 100);
+  return `Come funziona: apri il negozio da qui, compri come sempre e il ${share}% della commissione che il negozio ci paga torna a te.\n\nPuoi:\n- mandarmi il link di un prodotto (anche copiato da un canale di offerte): ti rispondo con lo stesso link con il cashback attivo;\n- scrivermi il nome di un negozio, per esempio "Thun";\n- aprire la Mini App per vedere negozi, offerte e il tuo saldo.\n\n/negozi elenco rapido, /stop niente avvisi sulle offerte.`;
+}
+
+// Primo link nel messaggio: indirizzo completo o dominio scritto a mano ("zalando.it").
+export function findLinkInText(text) {
+  const full = /https?:\/\/[^\s<>"']+/i.exec(text);
+  if (full) {
+    const url = full[0].replace(/[).,;!?]+$/, '');
+    const host = hostFromInput(url);
+    if (host) return { url, host };
+  }
+  for (const word of String(text).split(/\s+/)) {
+    const w = word.replace(/^[(<"']+|[).,;!?>"']+$/g, '');
+    if (!/^(www\.)?[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,}(\/\S*)?$/i.test(w)) continue;
+    const host = hostFromInput(w);
+    if (host) return { url: null, host };
+  }
+  return null;
+}
+
+// Negozio e pagina di destinazione per un link. I link Awin di altri siti (awin1.com/cread.php)
+// contengono il negozio (awinmid) e la pagina (ued): li rifacciamo con il nostro clickref.
+async function storeForLink(env, stores, found) {
+  let host = found.host;
+  let url = found.url;
+  if (url && hostMatches(host, ['awin1.com'])) {
+    try {
+      const u = new URL(url);
+      const mid = Number(u.searchParams.get('awinmid') || u.searchParams.get('mid'));
+      const ued = httpUrlOrNull(u.searchParams.get('ued') || u.searchParams.get('p'));
+      const view = stores.find((s) => s.awinMid === mid);
+      if (view) return { view, destination: view.productLinks ? ued : null };
+      if (ued) { url = ued; host = hostFromInput(ued) || host; }
+    } catch { /* link non valido: si prova con il dominio */ }
+  }
+  const view = stores.find((s) => hostMatches(host, s.domains));
+  if (!view) return null;
+  const destination = url && view.productLinks ? httpUrlOrNull(url) : null;
+  return { view, destination };
+}
+
+async function replyWithStoreLink(env, chatId, user, view, destination, hadUrl) {
+  const store = await env.DB.prepare('SELECT * FROM stores WHERE id = ?').bind(view.id).first();
+  const link = await createTrackedLink(env, user.id, store, destination);
+  const lines = [`${view.name}: cashback ${view.cashbackLabel}.`];
+  if (hadUrl && !destination) lines.push('Questo negozio non accetta link a una pagina precisa: si apre la pagina principale, da lì cerca il prodotto.');
+  lines.push('Tocca il pulsante e completa l\'acquisto nella pagina che si apre, senza passare da altri siti di sconti o cashback.');
+  if (view.rules && view.rules.appTracking === false) lines.push('Paga nel browser, non nell\'app del negozio: gli acquisti dall\'app non vengono registrati.');
+  lines.push('', 'Il link è personale: se vuoi far risparmiare un amico, mandagli il tuo invito dalla Mini App.');
+  await tgSend(env, chatId, lines.join('\n'), keyboard([[{ text: `Apri ${view.name}`, url: link }], appButton(env, 'Scheda del negozio e regole')]));
 }

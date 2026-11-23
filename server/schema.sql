@@ -125,3 +125,9 @@ INSERT OR IGNORE INTO stores (id, name, awin_mid, domains, category, rate_type, 
   ('intimissimi', 'Intimissimi', 73037,  'intimissimi.com',             'Moda',        'percent', 11.54, NULL,                               NULL, 0, 91),
   ('tezenis',     'Tezenis',     73043,  'tezenis.com',                 'Moda',        'percent', 11.54, NULL,                               NULL, 0, 92),
   ('vodafone',    'Vodafone',    9418,   'vodafone.it',                 'Telefonia',   'fixed',   51,    'per attivazione fibra o ADSL online', NULL, 0, 100);
+
+-- Utenti che hanno scritto /stop: non ricevono i messaggi a tutti (offerte, novità).
+CREATE TABLE IF NOT EXISTS news_optout (
+  user_id    TEXT PRIMARY KEY,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);

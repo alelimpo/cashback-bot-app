@@ -9,6 +9,7 @@ let programs = { joined: [], notjoined: [], groups: {}, details: {} };
 const calls = [];
 const emails = [];
 let authFail = false; // simula un token Awin revocato
+let offers = []; // offerte (Offers API di Awin)
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost');
@@ -25,7 +26,15 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === '/__calls') return send(200, calls);
   if (url.pathname === '/__emails') return send(200, emails);
   if (url.pathname === '/__authfail') { authFail = url.searchParams.get('on') === '1'; return send(200, { ok: true }); }
-  if (url.pathname === '/__reset') { transactions = []; messages.length = 0; calls.length = 0; emails.length = 0; programs = { joined: [], notjoined: [], groups: {}, details: {} }; return send(200, { ok: true }); }
+  if (url.pathname === '/__offers' && req.method === 'POST') { offers = JSON.parse(body || '[]'); return send(200, { ok: true }); }
+  if (/^\/publisher\/\d+\/promotions$/.test(url.pathname) && req.method === 'POST') {
+    calls.push(url.pathname);
+    if (authFail || req.headers.authorization !== 'Bearer test-awin-token' || url.searchParams.get('accessToken') !== 'test-awin-token') return send(401, { error: 'unauthorized' });
+    const f = (JSON.parse(body || '{}').filters) || {};
+    if (f.membership !== 'joined' || !(f.regionCodes || []).includes('IT')) return send(400, { error: 'filtri inattesi' });
+    return send(200, { data: offers, pagination: { page: 1, total: offers.length } });
+  }
+  if (url.pathname === '/__reset') { offers = []; transactions = []; messages.length = 0; calls.length = 0; emails.length = 0; programs = { joined: [], notjoined: [], groups: {}, details: {} }; return send(200, { ok: true }); }
 
   if (url.pathname.startsWith('/publishers/')) {
     calls.push(url.pathname);

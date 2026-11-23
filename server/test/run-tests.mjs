@@ -640,4 +640,167 @@ await step('elenco negozi pubblico senza login', async () => {
   assert.ok(r.data.stores.length >= 3);
 });
 
+
+// ------------------------------------------------ crescita: offerte, bot in chat, messaggi a tutti
+function hook(update) {
+  return fetch(API + '/telegram/webhook', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-telegram-bot-api-secret-token': 'local-webhook-secret' },
+    body: JSON.stringify(update),
+  });
+}
+let msgId = 1000;
+const chat = (from, text, type = 'private') => ({ message: { message_id: msgId++, chat: { id: from.id, type }, from, text } });
+async function lastTo(id, since) {
+  const list = (await messages()).slice(since).filter((m) => String(m.chat_id) === String(id) && m.text);
+  return list[list.length - 1];
+}
+const carla = { id: 333, first_name: 'Carla' };
+
+await step('offerte Awin: solo negozi attivi, codici visibili, scadute scartate, Black Friday prima', async () => {
+  const future = new Date(Date.now() + 5 * 86400000).toISOString().slice(0, 19) + '.000';
+  const past = new Date(Date.now() - 2 * 86400000).toISOString().slice(0, 19) + '.000';
+  await fetch(MOCK + '/__offers', { method: 'POST', body: JSON.stringify([
+    { promotionId: 501, type: 'promotion', advertiser: { id: 9449, name: 'Douglas', joined: true }, title: 'Fino al 30% sui profumi', description: '<p>Sconti &amp; regali</p>', terms: 'Fino a esaurimento', startDate: '2026-11-01T00:00:00.000', endDate: future, url: 'https://www.douglas.it/profumi', regions: { all: false, list: [{ name: 'Italy', countryCode: 'IT' }] } },
+    { promotionId: 502, type: 'voucher', advertiser: { id: 9449, name: 'Douglas', joined: true }, title: 'Black Friday: 10% extra', description: '', terms: '', startDate: '2026-11-20T00:00:00.000', endDate: future, url: 'https://www.douglas.it/', voucher: { code: 'BF10', exclusive: false, attributable: false } },
+    { promotionId: 503, type: 'voucher', advertiser: { id: 9449, name: 'Douglas', joined: true }, title: 'Codice esclusivo di un altro sito', endDate: future, url: 'https://www.douglas.it/', voucher: { code: null, exclusive: true } },
+    { promotionId: 504, type: 'promotion', advertiser: { id: 77777, name: 'Non iscritto', joined: false }, title: 'Altro negozio', endDate: future, url: 'https://altro.example/' },
+    { promotionId: 505, type: 'promotion', advertiser: { id: 9449, name: 'Douglas', joined: true }, title: 'Offerta scaduta', endDate: past, url: 'https://www.douglas.it/' },
+  ]) });
+  await runCron();
+  const r = await call('/api/stores');
+  assert.deepEqual(r.data.offers.map((o) => o.id), ['502', '501']);
+  assert.equal(r.data.offers[0].code, 'BF10');
+  assert.equal(r.data.offers[0].storeName, 'Douglas');
+  assert.equal(r.data.offers[0].cashbackLabel, 'fino al 7,2%');
+  assert.equal(r.data.offers[1].description, 'Sconti & regali');
+  assert.equal(r.data.offers[1].url, undefined, 'la pagina resta sul server');
+  const me = await call('/api/me', { initData: initData(bruno) });
+  assert.equal(me.data.offers.length, 2);
+});
+
+await step('link di un\'offerta: apre la pagina dell\'offerta con il clickref', async () => {
+  const r = await call('/api/link', { initData: initData(bruno), storeId: 'douglas', offerId: '501' });
+  assert.equal(r.status, 200);
+  const u = new URL(r.data.url);
+  assert.equal(u.searchParams.get('ued'), 'https://www.douglas.it/profumi');
+  assert.ok(u.searchParams.get('clickref'));
+  const bad = await call('/api/link', { initData: initData(bruno), storeId: 'temu', offerId: '501' });
+  assert.equal(bad.status, 404);
+});
+
+await step('bot: link di un prodotto di un negozio partner -> stesso link con cashback', async () => {
+  const n = (await messages()).length;
+  const res = await hook(chat(bruno, 'guarda questo https://www.douglas.it/p/profumo-123?x=1'));
+  assert.equal(res.status, 200);
+  const m = await lastTo(222, n);
+  assert.ok(m.text.startsWith('Douglas: cashback fino al 7,2%'), m.text);
+  const u = new URL(m.reply_markup.inline_keyboard[0][0].url);
+  assert.equal(u.hostname, 'www.awin1.com');
+  assert.equal(u.searchParams.get('awinmid'), '9449');
+  assert.equal(u.searchParams.get('ued'), 'https://www.douglas.it/p/profumo-123?x=1');
+  assert.ok(m.reply_markup.inline_keyboard[1][0].web_app, 'pulsante della Mini App');
+  // Il clic e' di Bruno: la vendita con quel clickref finisce nel suo saldo in attesa.
+  const status = await notify({ transactionId: 'chat-1', clickRef: u.searchParams.get('clickref'), merchantId: 9449, transactionAmount: 50, commission: 5, transactionCurrency: 'EUR', affiliateId: 3133036 });
+  assert.equal(status, 200);
+  const me = await call('/api/me', { initData: initData(bruno) });
+  assert.ok(me.data.transactions.some((t) => t.id === 'chat-1' && t.amountCents === 300));
+});
+
+await step('bot: link Awin di un altro sito rifatto con il nostro clickref', async () => {
+  const n = (await messages()).length;
+  const other = 'https://www.awin1.com/cread.php?awinmid=9449&awinaffid=999999&clickref=altro&ued=' + encodeURIComponent('https://www.douglas.it/offerte');
+  await hook(chat(bruno, other));
+  const u = new URL((await lastTo(222, n)).reply_markup.inline_keyboard[0][0].url);
+  assert.notEqual(u.searchParams.get('awinaffid'), '999999');
+  assert.notEqual(u.searchParams.get('clickref'), 'altro');
+  assert.equal(u.searchParams.get('ued'), 'https://www.douglas.it/offerte');
+});
+
+await step('bot: nome del negozio, negozio non partner segnalato, Amazon, gruppi ignorati', async () => {
+  let n = (await messages()).length;
+  await hook(chat(bruno, 'Douglas'));
+  let m = await lastTo(222, n);
+  assert.ok(m.text.startsWith('Douglas: cashback'));
+  assert.equal(new URL(m.reply_markup.inline_keyboard[0][0].url).searchParams.get('ued'), null);
+
+  // Dario e' nuovo (Bruno ha gia' usato le sue 5 segnalazioni del giorno).
+  const dario = { id: 444, first_name: 'Dario' };
+  await hook(chat(dario, '/start'));
+  n = (await messages()).length;
+  await hook(chat(dario, 'https://www.leroymerlin.it/prodotti/trapano'));
+  await sleep(800);
+  m = await lastTo(444, n);
+  assert.ok(m.text.includes('non è ancora tra i nostri negozi partner'));
+  const admin = (await messages()).slice(n).find((x) => String(x.chat_id) === '111' && x.text.includes('Nuova segnalazione negozio: Leroymerlin'));
+  assert.ok(admin, 'segnalazione all\'admin');
+  assert.ok(admin.text.includes('Link mandato in chat'));
+
+  n = (await messages()).length;
+  await hook(chat(bruno, 'https://amzn.to/3abcd'));
+  m = await lastTo(222, n);
+  assert.ok(m.text.includes('Amazon non è tra i nostri negozi partner'));
+  const reqs = await call('/api/admin/store-requests', { initData: initData(alice) });
+  assert.ok(!reqs.data.requests.some((g) => /amazon|amzn/.test(g.key)));
+
+  n = (await messages()).length;
+  await hook(chat(bruno, 'ciao come stai?'));
+  m = await lastTo(222, n);
+  assert.ok(m.text.startsWith('Come funziona'));
+
+  n = (await messages()).length;
+  await hook({ message: { message_id: msgId++, chat: { id: -100123, type: 'group' }, from: bruno, text: 'Douglas' } });
+  assert.equal((await messages()).slice(n).length, 0, 'niente risposte nei gruppi');
+});
+
+await step('messaggio a tutti: prova all\'admin, /stop rispettato, /avvisi riattiva', async () => {
+  assert.equal((await call('/api/admin/broadcast', { initData: initData(bruno), text: 'Ciao a tutti' })).status, 403);
+  assert.equal((await call('/api/admin/broadcast', { initData: initData(alice), text: 'Ci' })).status, 400);
+  await hook(chat(carla, '/stop'));
+  let n = (await messages()).length;
+  const t = await call('/api/admin/broadcast', { initData: initData(alice), text: 'Prova Black Friday', test: true });
+  assert.equal(t.data.ok, true);
+  let sent = (await messages()).slice(n);
+  assert.equal(sent.length, 1);
+  assert.equal(String(sent[0].chat_id), '111');
+  assert.ok(sent[0].text.includes('/stop'));
+
+  const stats = await call('/api/admin/stats', { initData: initData(alice) });
+  assert.equal(stats.data.newsOptOut, 1);
+  n = (await messages()).length;
+  const b = await call('/api/admin/broadcast', { initData: initData(alice), text: 'Black Friday: offerte nella Mini App' });
+  assert.equal(b.status, 200);
+  assert.equal(b.data.next, null);
+  assert.equal(b.data.total, stats.data.users - 1);
+  assert.equal(b.data.sent, b.data.total);
+  sent = (await messages()).slice(n).filter((m) => m.text.startsWith('Black Friday'));
+  assert.ok(sent.some((m) => String(m.chat_id) === '222'));
+  assert.ok(!sent.some((m) => String(m.chat_id) === '333'), 'chi ha scritto /stop non lo riceve');
+  assert.ok(sent[0].reply_markup.inline_keyboard[0][0].web_app);
+
+  await hook(chat(carla, '/avvisi'));
+  assert.equal((await call('/api/admin/stats', { initData: initData(alice) })).data.newsOptOut, 0);
+});
+
+await step('admin: numeri del servizio', async () => {
+  assert.equal((await call('/api/admin/stats', { initData: initData(bruno) })).status, 403);
+  const r = await call('/api/admin/stats', { initData: initData(alice) });
+  assert.equal(r.status, 200);
+  assert.ok(r.data.users >= 3);
+  assert.ok(r.data.clicks >= 4);
+  assert.ok(r.data.clicks7 >= 4);
+  assert.ok(r.data.sales >= 1);
+  assert.equal(r.data.marginCents, r.data.commissionCents - r.data.userCents);
+  assert.ok(r.data.topStores.some((s) => s.name === 'Douglas'));
+  assert.ok(r.data.lastBroadcast && r.data.lastBroadcast.text.startsWith('Black Friday'));
+});
+
+await step('configurazione: comandi del bot impostati', async () => {
+  const n = (await messages()).length;
+  const r = await call('/api/admin/setup', { initData: initData(alice) });
+  assert.equal(r.data.telegram.commands.ok, true);
+  const cmd = (await messages()).slice(n).find((m) => m.method === 'setMyCommands');
+  assert.ok(cmd.commands.some((c) => c.command === 'stop'));
+});
+
 console.log(`\nTutti i ${passed} test superati.`);

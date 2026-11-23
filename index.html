@@ -246,6 +246,21 @@
         .admin-group:first-child { border-top: 0; padding-top: 0; }
         .admin-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
         .ok-line { color: var(--pos); }
+        .offers { display: flex; gap: 10px; overflow-x: auto; padding: 2px 2px 10px; margin: 0 -2px; scroll-snap-type: x mandatory; scrollbar-width: none; }
+        .offers::-webkit-scrollbar { display: none; }
+        .offer { flex: 0 0 82%; max-width: 330px; scroll-snap-align: start; background: var(--surface); border-radius: 20px; padding: 14px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 8px; }
+        .offer:only-child { flex-basis: 100%; max-width: none; }
+        .offer-head { display: flex; align-items: center; gap: 10px; }
+        .offer-head .logo { width: 38px; height: 38px; border-radius: 11px; }
+        .offer-store { font-weight: 700; font-size: 14px; }
+        .offer-cb { font-size: 12.5px; font-weight: 700; color: var(--pos); }
+        .offer-title { font-family: var(--display); font-weight: 800; font-size: 17px; line-height: 1.2; }
+        .offer-code { display: flex; align-items: center; justify-content: space-between; gap: 8px; border: 1.5px dashed var(--coin); border-radius: 12px; padding: 7px 10px; font-weight: 800; letter-spacing: .04em; }
+        .offer-foot { margin-top: auto; display: flex; gap: 8px; align-items: center; justify-content: space-between; }
+        .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+        .stat { background: var(--surface-2); border-radius: 14px; padding: 10px 12px; }
+        .stat b { display: block; font-family: var(--display); font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; }
+        .stat span { font-size: 12px; color: var(--ink-2); line-height: 1.3; display: block; }
         .ko-line { color: var(--danger); }
 
         @media (prefers-reduced-motion: reduce) {
@@ -290,6 +305,12 @@
 
             <div class="tiles" id="homeTiles"></div>
 
+            <div class="section" id="offersSection" hidden>
+                <div class="section-head"><h2 id="offersTitle">Offerte del momento</h2><span class="tiny" id="offersCount"></span></div>
+                <div class="offers" id="offerList"></div>
+                <p class="tiny">Promozioni pubblicate dai negozi partner: il cashback si aggiunge allo sconto. Usa solo i codici che trovi qui, quelli di altri siti possono annullare il cashback.</p>
+            </div>
+
             <div class="section" id="guestAbout" hidden>
                 <div class="card">
                     <h3>Come funziona</h3>
@@ -322,7 +343,7 @@
                 </div>
                 <div class="card" id="productCard">
                     <h3>Hai già il link di un prodotto?</h3>
-                    <p class="muted small" style="margin-top:4px">Incollalo qui: ti portiamo alla stessa pagina con il cashback attivo.</p>
+                    <p class="muted small" style="margin-top:4px">Incollalo qui, oppure mandalo direttamente al bot in chat: ti portiamo alla stessa pagina con il cashback attivo.</p>
                     <input type="url" class="field" id="productLink" placeholder="https://..." style="margin-top:10px" aria-label="Link del prodotto">
                     <p class="error-text" id="productError" hidden></p>
                     <button class="btn btn-soft" id="productBtn" style="margin-top:10px">Apri con cashback</button>
@@ -413,6 +434,21 @@
         <section id="tab-admin" role="tabpanel" aria-labelledby="t-admin" hidden>
             <h2 style="margin-bottom:10px">Gestione</h2>
             <p class="tiny" style="margin-bottom:12px">Questa sezione la vedi solo tu.</p>
+            <div class="card" id="statsCard" hidden>
+                <h3>Numeri</h3>
+                <div class="stat-grid" id="statGrid"></div>
+                <p class="tiny" id="statTop" style="margin-top:10px"></p>
+            </div>
+            <div class="card">
+                <h3>Messaggio a tutti gli utenti</h3>
+                <p class="muted small" style="margin:4px 0 10px">Arriva sul bot a chi l'ha avviato, con il pulsante della Mini App e l'avviso che con /stop non riceve più questi messaggi. Usalo poco: offerte importanti o novità.</p>
+                <textarea class="field" id="bcText" maxlength="1500" rows="5" aria-label="Testo del messaggio" placeholder="Es. Black Friday: Comet, Thun e Cisalfa hanno sconti fino a lunedì. Aprili dalla Mini App e in più ricevi il cashback."></textarea>
+                <div class="admin-actions">
+                    <button class="btn btn-soft btn-small" id="bcTest">Prova su di me</button>
+                    <button class="btn btn-primary btn-small" id="bcSend">Invia a tutti</button>
+                </div>
+                <p class="tiny" id="bcResult" hidden style="margin-top:8px"></p>
+            </div>
             <div class="card">
                 <h3>Prelievi da pagare</h3>
                 <p class="muted small" style="margin:4px 0 10px">Paga con il metodo scelto, poi segna la richiesta come pagata.</p>
@@ -515,6 +551,8 @@
             reply_required: "Scrivi l'alternativa da proporre.",
             network: 'Connessione non riuscita: controlla la rete e riprova.',
             too_soon: 'Aggiornamento appena fatto: riprova tra due minuti.',
+            offer_not_found: 'Questa offerta è scaduta o non è più disponibile.',
+            invalid_text: 'Scrivi un messaggio tra 5 e 1500 caratteri.',
         };
         const DEFAULT_PROGRAM = { userSharePercent: 60, minPayoutCents: 1000, referralBonusCents: 200, payoutWorkingDays: 7 };
         const REQUEST_STATUS = {
@@ -525,7 +563,7 @@
             not_possible: { label: 'Non disponibile', cls: 'danger' },
         };
 
-        const state = { stores: [], balance: null, program: null, me: null, category: 'Tutti' };
+        const state = { stores: [], offers: [], balance: null, program: null, me: null, category: 'Tutti' };
         const $ = (id) => document.getElementById(id);
         const prog = () => state.program || DEFAULT_PROGRAM;
 
@@ -965,13 +1003,13 @@
             }, [{ label: 'Vai al negozio', id: 'ssGo', onClick: (btn) => openStore(s.id, null, btn) }]);
         }
 
-        async function openStore(storeId, url, btn) {
+        async function openStore(storeId, url, btn, offerId) {
             if (!initData) { toast('Apri la Mini App dal bot Telegram per ricevere il cashback.', true); return; }
             const original = btn.textContent;
             btn.disabled = true;
             btn.textContent = 'Apro...';
             try {
-                const res = await api('/api/link', { storeId, url: url || undefined });
+                const res = await api('/api/link', { storeId, url: url || undefined, offerId: offerId || undefined });
                 haptic('success');
                 openExternal(res.url);
             } catch (e) {
@@ -979,6 +1017,68 @@
             } finally {
                 btn.disabled = false;
                 btn.textContent = original;
+            }
+        }
+
+        // ------------------------------------------------------------ offerte
+        async function copyText(text, quiet) {
+            try {
+                await navigator.clipboard.writeText(text);
+                if (!quiet) toast('Codice copiato: ' + text);
+            } catch (e) {
+                toast('Codice: ' + text + ' (copialo a mano)');
+            }
+        }
+
+        function renderOffers() {
+            const list = $('offerList');
+            list.replaceChildren();
+            const offers = state.offers || [];
+            $('offersSection').hidden = offers.length === 0;
+            if (!offers.length) return;
+            $('offersTitle').textContent = offers.some((o) => /black|cyber/i.test(o.title)) ? 'Offerte Black Friday' : 'Offerte del momento';
+            $('offersCount').textContent = offers.length > 1 ? offers.length + ' offerte' : '';
+            for (const o of offers) {
+                const card = el('div', 'offer');
+                const head = el('div', 'offer-head');
+                const t = el('div');
+                t.style.minWidth = '0';
+                t.append(el('p', 'offer-store', o.storeName), el('p', 'offer-cb', '+ cashback ' + o.cashbackLabel));
+                head.append(logoNode({ name: o.storeName, logo: o.logo }), t);
+                card.append(head, el('p', 'offer-title', o.title));
+                if (o.description && o.description !== o.title) {
+                    card.append(el('p', 'small muted', o.description.length > 140 ? o.description.slice(0, 137) + '...' : o.description));
+                }
+                if (o.code) {
+                    const box = el('div', 'offer-code');
+                    const copy = el('button', 'link-btn', 'Copia');
+                    copy.setAttribute('aria-label', 'Copia il codice ' + o.code);
+                    copy.addEventListener('click', () => copyText(o.code));
+                    box.append(el('span', '', o.code), copy);
+                    card.append(box);
+                }
+                if (o.terms || o.opensHome) {
+                    const more = el('button', 'link-btn', 'Condizioni');
+                    more.style.alignSelf = 'flex-start';
+                    more.addEventListener('click', () => openSheet(o.storeName, (b) => {
+                        b.append(el('p', 'sub-h', o.title));
+                        if (o.terms) b.append(para(o.terms, 'muted'));
+                        if (o.opensHome) b.append(para('Il link apre la pagina principale del negozio: da lì cerca l\'offerta.', 'muted'));
+                        b.append(para('Condizioni pubblicate dal negozio. Il cashback segue le regole che trovi nella scheda del negozio.', 'tiny'));
+                    }));
+                    card.append(more);
+                }
+                const foot = el('div', 'offer-foot');
+                foot.append(el('p', 'tiny', o.endDate ? 'Fino al ' + day(o.endDate) : ''));
+                const go = el('button', 'btn-go', o.code ? 'Copia e apri' : 'Apri offerta');
+                go.setAttribute('aria-label', 'Apri l\'offerta di ' + o.storeName + ' con cashback');
+                go.addEventListener('click', () => {
+                    if (o.code) copyText(o.code, true);
+                    openStore(o.storeId, null, go, o.id);
+                });
+                foot.append(go);
+                card.append(foot);
+                list.append(card);
             }
         }
 
@@ -1100,6 +1200,7 @@
             state.balance = me.balance;
             state.program = me.program || null;
             state.stores = me.stores || [];
+            state.offers = me.offers || [];
             if (me.user.firstName) $('hello').textContent = 'Ciao, ' + me.user.firstName;
             $('heroUser').hidden = false;
             $('heroGuest').hidden = true;
@@ -1119,6 +1220,7 @@
 
             renderChips();
             renderStores();
+            renderOffers();
             renderMyRequests(me.storeRequests || []);
 
             const tx = $('txList');
@@ -1204,7 +1306,32 @@
         });
 
         // ------------------------------------------------------------ admin
+        function renderStats(s) {
+            const g = $('statGrid');
+            g.replaceChildren();
+            const items = [
+                [String(s.users), 'utenti, ' + s.users7 + ' nuovi in 7 giorni'],
+                [String(s.clicks7), 'clic sui negozi in 7 giorni (' + s.clicks + ' in tutto, da ' + s.clickers + (s.clickers === 1 ? ' utente)' : ' utenti)')],
+                [String(s.sales), 'acquisti registrati: ' + s.salesPending + ' in attesa, ' + s.salesApproved + ' approvati'],
+                [euro(s.marginCents), 'la tua parte delle commissioni (' + euro(s.commissionCents) + ' in tutto)'],
+            ];
+            for (const [v, l] of items) {
+                const d = el('div', 'stat');
+                d.append(el('b', '', v), el('span', '', l));
+                g.append(d);
+            }
+            const notes = [];
+            if (s.topStores && s.topStores.length) notes.push('Più cliccati negli ultimi 30 giorni: ' + s.topStores.map((t) => t.name + ' (' + t.clicks + ')').join(', ') + '.');
+            notes.push(s.referred + (s.referred === 1 ? ' utente arrivato' : ' utenti arrivati') + ' da un invito.');
+            if (s.salesCancelled) notes.push(s.salesCancelled + ' acquisti annullati dai negozi.');
+            if (s.newsOptOut) notes.push(s.newsOptOut + ' non ricevono i messaggi a tutti (/stop).');
+            if (s.lastBroadcast) notes.push('Ultimo messaggio a tutti: ' + day(s.lastBroadcast.at) + '.');
+            $('statTop').textContent = notes.join(' ');
+            $('statsCard').hidden = false;
+        }
+
         async function loadAdmin() {
+            api('/api/admin/stats', {}).then(renderStats).catch(() => { $('statsCard').hidden = true; });
             const list = $('adminList');
             const rl = $('reqAdminList');
             let data, reqs, shops;
@@ -1315,6 +1442,43 @@
             } catch (e) { toast(errorText(e), true); }
         }
 
+        $('bcTest').addEventListener('click', async () => {
+            const btn = $('bcTest');
+            btn.disabled = true;
+            try {
+                const r = await api('/api/admin/broadcast', { text: $('bcText').value, test: true });
+                toast(r.ok ? 'Messaggio di prova inviato: controlla la chat del bot.' : 'Prova non consegnata: hai avviato il bot?', !r.ok);
+            } catch (e) { toast(errorText(e), true); } finally { btn.disabled = false; }
+        });
+        $('bcSend').addEventListener('click', async () => {
+            const text = $('bcText').value.trim();
+            if (text.length < 5) { toast(ERRORS.invalid_text, true); return; }
+            if (!(await ask('Inviare il messaggio a tutti gli utenti del bot? Una volta partito non si può annullare.'))) return;
+            const btn = $('bcSend');
+            btn.disabled = true;
+            $('bcTest').disabled = true;
+            const out = $('bcResult');
+            out.hidden = false;
+            out.textContent = 'Invio in corso...';
+            let after = 0, sent = 0, failed = 0, total = 0;
+            try {
+                do {
+                    const r = await api('/api/admin/broadcast', { text, after });
+                    sent += r.sent; failed += r.failed; total = r.total; after = r.next;
+                    out.textContent = 'Inviati ' + (sent + failed) + ' su ' + total + '...';
+                } while (after);
+                out.textContent = 'Fatto: ' + sent + (sent === 1 ? ' messaggio consegnato' : ' messaggi consegnati') + (failed ? ', ' + failed + ' non consegnati (utenti che hanno bloccato il bot o non l\'hanno mai avviato)' : '') + '.';
+                $('bcText').value = '';
+                toast('Messaggio inviato.');
+            } catch (e) {
+                toast(errorText(e), true);
+                out.textContent = 'Interrotto dopo ' + sent + ' messaggi: ' + errorText(e);
+            } finally {
+                btn.disabled = false;
+                $('bcTest').disabled = false;
+            }
+        });
+
         $('setupBtn').addEventListener('click', async () => {
             const btn = $('setupBtn');
             btn.disabled = true;
@@ -1326,6 +1490,7 @@
                 const line = (ok, text) => out.append(el('p', ok ? 'ok-line' : 'ko-line', (ok ? '✓ ' : '✗ ') + text));
                 line(r.telegram.webhook.ok, 'Bot collegato al server' + (r.telegram.webhook.ok ? '' : ': ' + (r.telegram.webhook.description || 'errore')));
                 line(r.telegram.menuButton.ok, 'Il pulsante menu del bot apre la Mini App' + (r.telegram.menuButton.ok ? '' : ': ' + (r.telegram.menuButton.description || 'errore')));
+                if (r.telegram.commands) line(r.telegram.commands.ok, 'Comandi del bot impostati (/negozi, /aiuto, /stop)' + (r.telegram.commands.ok ? '' : ': ' + (r.telegram.commands.description || 'errore')));
                 line(r.checks.awinApiToken, r.checks.awinApiToken ? 'Token API Awin impostato' : 'Manca il token API Awin');
                 line(!!r.checks.botUsername, r.checks.botUsername ? 'Link di invito attivi (@' + r.checks.botUsername + ')' : 'Manca BOT_USERNAME: link di invito spenti');
                 const em = r.checks.email || { skipped: true };
@@ -1386,6 +1551,7 @@
                 try {
                     const pub = await api('/api/stores');
                     state.stores = pub.stores;
+                    state.offers = pub.offers || [];
                     state.program = pub.program || null;
                 } catch (e) { /* server non raggiungibile: restano i valori predefiniti */ }
                 const p0 = prog();
@@ -1397,6 +1563,7 @@
                 renderSplit();
                 renderChips();
                 renderStores();
+                renderOffers();
                 return;
             }
             try {
