@@ -666,17 +666,23 @@ await step('offerte Awin: solo negozi attivi, codici visibili, scadute scartate,
     { promotionId: 503, type: 'voucher', advertiser: { id: 9449, name: 'Douglas', joined: true }, title: 'Codice esclusivo di un altro sito', endDate: future, url: 'https://www.douglas.it/', voucher: { code: null, exclusive: true } },
     { promotionId: 504, type: 'promotion', advertiser: { id: 77777, name: 'Non iscritto', joined: false }, title: 'Altro negozio', endDate: future, url: 'https://altro.example/' },
     { promotionId: 505, type: 'promotion', advertiser: { id: 9449, name: 'Douglas', joined: true }, title: 'Offerta scaduta', endDate: past, url: 'https://www.douglas.it/' },
+    { promotionId: 506, type: 'promotion', advertiser: { id: 9449, name: 'Douglas', joined: true }, title: 'Regalo con 50 euro di spesa', endDate: future, url: 'https://www.douglas.it/regalo' },
+    { promotionId: 507, type: 'promotion', advertiser: { id: 9449, name: 'Douglas', joined: true }, title: 'Spedizione gratis', endDate: future, url: 'https://www.douglas.it/' },
+    { promotionId: 508, type: 'voucher', advertiser: { id: 9449, name: 'Douglas', joined: true }, title: 'BLACK FRIDAY: 10% EXTRA!', endDate: future, url: 'https://www.douglas.it/', voucher: { code: 'BF10B' } },
+    { promotionId: 509, type: 'promotion', advertiser: { id: 9449, name: 'Douglas', joined: true }, title: 'Saldi di primavera', endDate: '2029-03-04T00:00:00.000', url: 'https://www.douglas.it/' },
+    { promotionId: 510, type: 'promotion', advertiser: { id: 9418, name: 'Vodafone', joined: true }, title: 'Fibra a prezzo bloccato', endDate: future, url: 'https://www.vodafone.it/fibra' },
   ]) });
   await runCron();
   const r = await call('/api/stores');
-  assert.deepEqual(r.data.offers.map((o) => o.id), ['502', '501']);
+  // Massimo 3 per negozio, niente doppioni (508 = 502), niente schede valide per anni (509), negozi alternati.
+  assert.deepEqual(r.data.offers.map((o) => o.id), ['502', '510', '501', '506']);
   assert.equal(r.data.offers[0].code, 'BF10');
   assert.equal(r.data.offers[0].storeName, 'Douglas');
   assert.equal(r.data.offers[0].cashbackLabel, 'fino al 7,2%');
-  assert.equal(r.data.offers[1].description, 'Sconti & regali');
+  assert.equal(r.data.offers[2].description, 'Sconti & regali');
   assert.equal(r.data.offers[1].url, undefined, 'la pagina resta sul server');
   const me = await call('/api/me', { initData: initData(bruno) });
-  assert.equal(me.data.offers.length, 2);
+  assert.equal(me.data.offers.length, 4);
 });
 
 await step('link di un\'offerta: apre la pagina dell\'offerta con il clickref', async () => {

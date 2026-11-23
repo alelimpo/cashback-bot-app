@@ -30,6 +30,7 @@ const REQUEST_REPLY_STATUSES = ['working', 'added', 'alternative', 'not_possible
 // Offerte dei negozi (Offers API di Awin): lette al massimo ogni 3 ore.
 const OFFERS_REFRESH_HOURS = 3;
 const MAX_OFFERS = 40;
+const MAX_OFFERS_PER_STORE = 3;
 // Messaggi a tutti gli utenti: il piano gratuito di Workers permette 50 chiamate esterne per
 // richiesta, quindi si invia a gruppi di 40 e la Mini App chiede il gruppo successivo.
 const BROADCAST_BATCH = 40;
@@ -723,6 +724,8 @@ export async function syncOffers(env, { force = false } = {}) {
     if (voucher && !code) continue;
     const end = parseUtc(o.endDate);
     if (Number.isFinite(end) && end < now) continue;
+    // Una promozione "valida" per anni e' quasi sempre una scheda vecchia mai chiusa.
+    if (Number.isFinite(end) && end > now + 400 * 86400 * 1000) continue;
     const title = cleanText(o.title, 140);
     if (!title) continue;
     items.push({
@@ -741,9 +744,27 @@ export async function syncOffers(env, { force = false } = {}) {
   // Prima le offerte stagionali (Black Friday, Natale...), poi quelle che scadono prima.
   items.sort((a, b) => (SEASONAL.test(b.title) - SEASONAL.test(a.title))
     || ((Number.isFinite(parseUtc(a.endDate)) ? parseUtc(a.endDate) : Infinity) - (Number.isFinite(parseUtc(b.endDate)) ? parseUtc(b.endDate) : Infinity)));
-  const kept = items.slice(0, MAX_OFFERS);
+  const kept = pickOffers(items, MAX_OFFERS_PER_STORE, MAX_OFFERS);
   await saveSetting(env, 'offers', { at: new Date().toISOString(), items: kept });
   return { offers: kept.length, received: list.length };
+}
+
+// Al massimo "perStore" offerte per negozio, senza doppioni dello stesso titolo, e negozi alternati
+// (la migliore di ogni negozio, poi la seconda...): un negozio con 15 promozioni non riempie la sezione.
+export function pickOffers(sorted, perStore, max) {
+  const byStore = new Map();
+  for (const o of sorted) {
+    const list = byStore.get(o.storeId) || [];
+    const key = o.title.toLowerCase().replace(/[^a-z0-9%€]+/g, ' ').trim();
+    if (list.length >= perStore || list.some((x) => x.key === key)) continue;
+    list.push({ key, o });
+    byStore.set(o.storeId, list);
+  }
+  const out = [];
+  for (let round = 0; round < perStore; round++) {
+    for (const list of byStore.values()) if (list[round]) out.push(list[round].o);
+  }
+  return out.slice(0, max);
 }
 
 async function findOffer(env, id) {
