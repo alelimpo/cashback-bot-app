@@ -795,6 +795,29 @@ await step('admin: numeri del servizio', async () => {
   assert.ok(r.data.lastBroadcast && r.data.lastBroadcast.text.startsWith('Black Friday'));
 });
 
+await step('link condivisi: offerta e negozio dal /start, con l\'invito di chi condivide', async () => {
+  const me = await call('/api/me', { initData: initData(bruno) });
+  const code = me.data.user.refCode;
+  const elena = { id: 555, first_name: 'Elena' };
+  let n = (await messages()).length;
+  await hook(chat(elena, `/start o_501__ref_${code}`));
+  let m = await lastTo(555, n);
+  assert.ok(m.text.startsWith('Douglas: Fino al 30% sui profumi'), m.text);
+  assert.equal(new URL(m.reply_markup.inline_keyboard[0][0].url).searchParams.get('ued'), 'https://www.douglas.it/profumi');
+  // Elena risulta invitata da Bruno.
+  const st = await call('/api/admin/stats', { initData: initData(alice) });
+  assert.ok(st.data.referred >= 2);
+  n = (await messages()).length;
+  await hook(chat(elena, '/start o_99999'));
+  assert.ok((await lastTo(555, n)).text.includes('scaduta'));
+  n = (await messages()).length;
+  await hook(chat(elena, '/start s_douglas'));
+  assert.ok((await lastTo(555, n)).text.startsWith('Douglas: cashback'));
+  n = (await messages()).length;
+  await hook(chat(elena, '/start s_non-esiste'));
+  assert.ok((await lastTo(555, n)).text.startsWith('Ciao!'), 'negozio sconosciuto: messaggio di benvenuto');
+});
+
 await step('configurazione: comandi del bot impostati', async () => {
   const n = (await messages()).length;
   const r = await call('/api/admin/setup', { initData: initData(alice) });

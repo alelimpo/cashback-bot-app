@@ -1000,7 +1000,10 @@
                     para(declared ? 'Sono i motivi che il negozio indica nei termini del suo programma di affiliazione.' : 'Il negozio non ha pubblicato i motivi di annullamento: questi sono i più comuni.', 'tiny'));
 
                 body.append(para('Fonte: programma di affiliazione del negozio' + (s.updatedAt ? ', dati aggiornati al ' + day(s.updatedAt) : '') + '. Le medie descrivono il passato e non sono una garanzia.', 'tiny'));
-            }, [{ label: 'Vai al negozio', id: 'ssGo', onClick: (btn) => openStore(s.id, null, btn) }]);
+            }, [
+                ...(initData ? [{ label: 'Condividi', cls: 'btn-soft', onClick: () => shareTarget('s_' + s.id, s.name + ' con cashback ' + s.cashbackLabel + ': compri allo stesso prezzo e una parte ti torna indietro.') }] : []),
+                { label: 'Vai al negozio', id: 'ssGo', onClick: (btn) => openStore(s.id, null, btn) },
+            ]);
         }
 
         async function openStore(storeId, url, btn, offerId) {
@@ -1028,6 +1031,15 @@
             } catch (e) {
                 toast('Codice: ' + text + ' (copialo a mano)');
             }
+        }
+
+        // Link da condividere: apre il bot sul negozio o sull'offerta e porta con se' il tuo invito.
+        function shareTarget(target, text) {
+            const ref = state.me && state.me.user && state.me.user.refCode ? '__ref_' + state.me.user.refCode : '';
+            const link = 'https://t.me/' + BOT_USERNAME + '?start=' + target + ref;
+            const shareUrl = 'https://t.me/share/url?url=' + encodeURIComponent(link) + '&text=' + encodeURIComponent(text);
+            if (tg && tg.openTelegramLink) tg.openTelegramLink(shareUrl);
+            else window.open(shareUrl, '_blank', 'noopener');
         }
 
         function renderOffers() {
@@ -1069,7 +1081,15 @@
                     card.append(more);
                 }
                 const foot = el('div', 'offer-foot');
-                foot.append(el('p', 'tiny', o.endDate ? 'Fino al ' + day(o.endDate) : ''));
+                const left = el('div');
+                left.append(el('p', 'tiny', o.endDate ? 'Fino al ' + day(o.endDate) : ''));
+                if (initData) {
+                    const sh = el('button', 'link-btn', 'Condividi');
+                    sh.setAttribute('aria-label', 'Condividi l\'offerta di ' + o.storeName);
+                    sh.addEventListener('click', () => shareTarget('o_' + o.id, o.storeName + ': ' + o.title + '. Se la apri da qui hai anche il cashback: ' + o.cashbackLabel + '.'));
+                    left.append(sh);
+                }
+                foot.append(left);
                 const go = el('button', 'btn-go', o.code ? 'Copia e apri' : 'Apri offerta');
                 go.setAttribute('aria-label', 'Apri l\'offerta di ' + o.storeName + ' con cashback');
                 go.addEventListener('click', () => {

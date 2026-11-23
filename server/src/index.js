@@ -346,7 +346,8 @@ async function upsertUser(env, tgUser, startParam) {
 
   // Nuovo utente: registra chi lo ha invitato (solo alla prima apertura).
   let referredBy = null;
-  const m = /^ref_([a-z0-9]{4,16})$/.exec(String(startParam || ''));
+  const refToken = String(startParam || '').split('__').find((p) => /^ref_/.test(p)) || '';
+  const m = /^ref_([a-z0-9]{4,16})$/.exec(refToken);
   if (m) {
     const inviter = await env.DB.prepare('SELECT id FROM users WHERE ref_code = ?').bind(m[1]).first();
     if (inviter && inviter.id !== id) referredBy = inviter.id;
@@ -1798,8 +1799,13 @@ async function handleChatMessage(env, ctx, msg, text) {
   const name = command ? command[1].toLowerCase() : null;
 
   if (name === 'start') {
-    const payload = (command[2] || '').split(/\s+/)[0] || null;
-    await upsertUser(env, msg.from, payload);
+    // Il parametro puo' contenere l'invito (ref_CODICE) e un negozio o un'offerta da aprire
+    // (s_IDNEGOZIO, o_IDOFFERTA), separati da "__": t.me/NomeBot?start=o_502__ref_abcd1234.
+    const parts = ((command[2] || '').split(/\s+/)[0] || '').split('__');
+    const refPart = parts.find((p) => /^ref_/.test(p)) || null;
+    const target = parts.find((p) => /^[so]_[a-z0-9-]{1,40}$/i.test(p)) || null;
+    const user = await upsertUser(env, msg.from, refPart);
+    if (target && await replyWithTarget(env, chatId, user, target)) return;
     const share = Math.round(userShare(env) * 100);
     await tgSend(env, chatId,
       `Ciao! Fai la spesa online che faresti comunque, allo stesso prezzo, ma partendo da qui: così una parte dei soldi ti torna indietro.\n\nOgni negozio ci paga una commissione: il ${share}% è tuo, noi teniamo il ${100 - share}%. I tempi sono lunghi (spesso qualche mese, perché il negozio paga solo dopo aver confermato l'ordine), ma nella Mini App vedi sempre percentuali, tempi medi e regole di ogni negozio. Prelievo da ${formatEuro(eurosToCents(env.MIN_PAYOUT_EUR, 1000))} con PayPal o buono regalo.\n\nScorciatoia: mandami il link di un prodotto o il nome di un negozio e ti rispondo con il link che attiva il cashback.`,
@@ -1897,6 +1903,33 @@ async function handleChatMessage(env, ctx, msg, text) {
     }
   }
   await tgSend(env, chatId, helpText(env), keyboard([appButton(env)]));
+}
+
+// Link condivisi (s_negozio, o_offerta): il bot risponde subito con il link personale.
+async function replyWithTarget(env, chatId, user, target) {
+  const stores = await listStores(env);
+  const id = target.slice(2);
+  if (target.startsWith('s_')) {
+    const view = stores.find((s) => s.id === id);
+    if (!view) return false;
+    await replyWithStoreLink(env, chatId, user, view, null, false);
+    return true;
+  }
+  const offer = (await listOffers(env, stores)).find((o) => o.id === id);
+  if (!offer) {
+    await tgSend(env, chatId, 'Questa offerta è scaduta o non è più disponibile. Nella Mini App trovi quelle del momento.', keyboard([appButton(env, 'Vedi le offerte')]));
+    return true;
+  }
+  const full = await findOffer(env, id);
+  const view = stores.find((s) => s.id === offer.storeId);
+  const store = await env.DB.prepare('SELECT * FROM stores WHERE id = ?').bind(view.id).first();
+  const link = await createTrackedLink(env, user.id, store, view.productLinks && full && full.url ? full.url : null);
+  const lines = [`${offer.storeName}: ${offer.title}`, `In più ricevi il cashback: ${offer.cashbackLabel}.`];
+  if (offer.code) lines.push(`Codice sconto da usare al pagamento: ${offer.code}`);
+  if (offer.endDate) lines.push(`Valida fino al ${offer.endDate.split('-').reverse().join('/')}.`);
+  lines.push('', 'Tocca il pulsante e completa l\'acquisto nella pagina che si apre, senza passare da altri siti di sconti o cashback.');
+  await tgSend(env, chatId, lines.join('\n'), keyboard([[{ text: `Apri l'offerta di ${offer.storeName}`, url: link }], appButton(env, 'Altre offerte e regole')]));
+  return true;
 }
 
 function helpText(env) {
